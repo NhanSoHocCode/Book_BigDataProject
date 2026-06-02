@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}Data Quality | Book Big Data{% endblock %}
+{% block content %}
+  <h1 class="h3">Data Quality</h1>
+  <p class="text-secondary">Drill quality report loaded from HDFS through WebHDFS.</p>
+  {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+  {% if chart %}
+    <div class="chart-panel mb-4"><canvas id="quality-chart"></canvas></div>
+  {% endif %}
+  <table class="table table-striped">
+    <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>{% for column in columns %}<td>{{ row.get(column, "") }}</td>{% endfor %}</tr>
+      {% else %}
+        <tr><td class="text-secondary">No Drill quality report available.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+{% block scripts %}
+  {% if chart %}
+    <script>renderBarChart("quality-chart", {{ chart | tojson }});</script>
+  {% endif %}
+{% endblock %}

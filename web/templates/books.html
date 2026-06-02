@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+{% block title %}Books | Book Big Data{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1">Book Management</h1>
+      <p class="text-secondary mb-0">{{ total }} books in MySQL</p>
+    </div>
+  </div>
+
+  <form class="row g-2 card card-body mb-3" method="get">
+    <div class="col-md-3"><input class="form-control" name="q" value="{{ filters.q }}" placeholder="Search title"></div>
+    <div class="col-md-2">
+      <select class="form-select" name="source">
+        <option value="">All sources</option>
+        <option value="tiki" {% if filters.source == "tiki" %}selected{% endif %}>Tiki</option>
+        <option value="fahasa" {% if filters.source == "fahasa" %}selected{% endif %}>Fahasa</option>
+      </select>
+    </div>
+    <div class="col-md-2"><input class="form-control" name="category" value="{{ filters.category }}" placeholder="Category"></div>
+    <div class="col-md-2"><input class="form-control" name="author" value="{{ filters.author }}" placeholder="Author"></div>
+    <div class="col-md-1"><input class="form-control" name="min_price" value="{{ filters.min_price }}" placeholder="Min"></div>
+    <div class="col-md-1"><input class="form-control" name="max_price" value="{{ filters.max_price }}" placeholder="Max"></div>
+    <div class="col-md-1"><button class="btn btn-primary w-100">Filter</button></div>
+  </form>
+
+  <details class="card card-body mb-3">
+    <summary class="fw-semibold">{% if edit_book %}Edit book{% else %}Add a book{% endif %}</summary>
+    <form class="row g-2 mt-2" method="post" action="{{ url_for('books.save') }}">
+      {% for field in ["book_id", "title", "author", "publisher", "language_group", "main_category", "sub_category", "price", "original_price", "discount_rate", "rating", "review_count", "sold_count", "publish_year", "page_count", "url"] %}
+        <div class="col-md-3"><input class="form-control" name="{{ field }}" value="{{ edit_book.get(field, '') if edit_book else '' }}" placeholder="{{ field }}" {% if field in ["book_id", "title", "url"] %}required{% endif %}></div>
+      {% endfor %}
+      <div class="col-md-3">
+        <select class="form-select" name="source" required>
+          <option value="tiki" {% if edit_book and edit_book.source == "tiki" %}selected{% endif %}>Tiki</option>
+          <option value="fahasa" {% if edit_book and edit_book.source == "fahasa" %}selected{% endif %}>Fahasa</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-success">Save book</button>
+        {% if edit_book %}<a class="btn btn-outline-secondary" href="{{ url_for('books.index') }}">Cancel</a>{% endif %}
+      </div>
+    </form>
+  </details>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead><tr><th>Source</th><th>ID</th><th>Title</th><th>Author</th><th>Category</th><th>Price</th><th>Sold</th><th></th></tr></thead>
+      <tbody>
+        {% for book in books %}
+          <tr>
+            <td>{{ book.source }}</td>
+            <td>{{ book.book_id }}</td>
+            <td><a href="{{ book.url }}" target="_blank" rel="noreferrer">{{ book.title }}</a></td>
+            <td>{{ book.author }}</td>
+            <td>{{ book.main_category }}</td>
+            <td>{{ "{:,.0f}".format(book.price) }}</td>
+            <td>{{ book.sold_count }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('books.index', edit_source=book.source, edit_id=book.book_id) }}">Edit</a>
+                <form method="post" action="{{ url_for('books.delete', source=book.source, book_id=book.book_id) }}" onsubmit="return confirm('Delete this book?')">
+                  <button class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="text-center text-secondary">No books found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <nav>
+    <ul class="pagination">
+      {% for current in range(1, pages + 1) %}
+        <li class="page-item {% if current == page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('books.index', page=current, **filters) }}">{{ current }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </nav>
+{% endblock %}

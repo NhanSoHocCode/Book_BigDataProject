@@ -1,0 +1,25 @@
+{
+  "timeout_seconds": 20,
+  "request_delay_seconds": 0.75,
+  "max_pages_per_category": 2,
+  "max_products_per_category": 80,
+  "categories": [
+    {
+      "name": "Sach trong nuoc",
+      "language_group": "Vietnamese",
+      "url": "https://www.fahasa.com/sach-trong-nuoc.html"
+    },
+    {
+      "name": "Foreign Books",
+      "language_group": "English",
+      "url": "https://www.fahasa.com/foreigncategory.html"
+    }
+  ],
+  "selectors": {
+    "product_links": [
+      "a.product-image",
+      ".product-name a",
+      ".product-item-link"
+    ]
+  }
+}
