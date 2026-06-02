@@ -616,26 +616,9 @@ Menu chính gồm:
 
 ### 12.1. Công việc chung của toàn bộ thành viên
 
-Tất cả thành viên cùng tham gia cài đặt, cấu hình và kiểm thử môi trường
+Mọi người đề phải cài đặt, cấu hình và kiểm thử môi trường
 Hadoop Ecosystem gồm Ubuntu Cluster, HDFS, YARN, Sqoop, Pig, Hive, Drill,
 Spark, HBase, Phoenix và ZooKeeper.
-
-Nhóm thống nhất một môi trường cluster dùng chung, schema dữ liệu, cấu trúc
-thư mục HDFS và quy trình chạy pipeline. Sau khi môi trường được kiểm thử thành
-công, mỗi thành viên phát triển module được phân công, tích hợp vào hệ thống
-tổng thể và hỗ trợ kiểm thử end-to-end.
-
-Checklist nghiệm thu môi trường chung:
-
-- HDFS và YARN khởi động ổn định, các daemon cần thiết xuất hiện trong `jps`.
-- Sqoop import được bảng `books` từ MySQL vào `/book_project/raw/books`.
-- Pig tạo được `/book_project/clean/books_valid`.
-- Hive truy vấn được External Table.
-- MapReduce và Spark ghi được output analytics lên HDFS.
-- Drill tạo được báo cáo Data Quality trên HDFS.
-- Flask đọc được output bằng WebHDFS API.
-- HBase, Phoenix và ZooKeeper chạy được luồng demo.
-- Backup và restore được kiểm thử ít nhất một lần với MySQL và HDFS.
 
 Các file tài liệu và cấu hình dùng chung:
 
