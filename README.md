@@ -61,6 +61,7 @@ Các thư viện Python được khai báo trong `requirements.txt`:
 | `flask` | Xây dựng Web |
 | `mysql-connector-python` | Kết nối Flask và script import với MySQL |
 | `python-dotenv` | Đọc cấu hình từ file `.env` |
+| `scrapy` | Crawl dữ liệu theo spider, dùng thử trước cho nguồn Fahasa |
 
 Mở `.env`, cập nhật tài khoản MySQL và địa chỉ NameNode. Sau khi ETL tạo
 `books_clean.csv`, khởi tạo schema và import dữ liệu:
@@ -634,7 +635,7 @@ docs/setup/
 
 | Thành viên | Phần phụ trách | Nội dung thực hiện | File và thư mục chính |
 | --- | --- | --- | --- |
-| `<Tên thành viên>` | Crawl + ETL | Khảo sát Tiki và Fahasa; crawl Tiki bằng API; crawl Fahasa bằng HTML và trang detail; lưu raw JSON; chuẩn hóa schema; validate dữ liệu; xuất `books_clean.csv`. | `crawler_etl/config/`, `crawler_etl/crawlers/`, `crawler_etl/etl/`, `scripts/windows/run_crawl_etl.bat`, `data/raw/`, `data/clean/` |
+| `<Tên thành viên>` | Crawl + ETL | Khảo sát Tiki và Fahasa; crawl Tiki bằng API; crawl Fahasa bằng HTML và trang detail; lưu raw JSON; chuẩn hóa schema; validate dữ liệu; xuất `books_clean.csv`. | `crawler_etl/config/`, `crawler_etl/scrapy_crawlers/`, `crawler_etl/etl/`, `scripts/windows/run_crawl_etl.bat`, `data/raw/`, `data/clean/` |
 | `<Tên thành viên>` | Flask Web | CRUD sách từ MySQL; search, filter và phân trang; giao diện Bootstrap; biểu đồ Chart.js; đọc analytics và Data Quality trực tiếp từ HDFS bằng WebHDFS; giao diện backup và restore. | `web/app.py`, `web/routes/`, `web/services/`, `web/templates/`, `web/static/`, `scripts/windows/run_web.bat` |
 | `<Tên thành viên>` | MySQL + Hadoop nền | Thiết kế schema MySQL; import CSV; phối hợp dựng Ubuntu cluster, HDFS và YARN; cấu hình Sqoop, Pig, Hive; tạo External Table; triển khai script backup và restore MySQL, HDFS; điều phối tích hợp pipeline nền. | `database/`, `hadoop/sqoop/`, `hadoop/pig/`, `hadoop/hive/`, `scripts/windows/import_mysql.bat`, `scripts/ubuntu/run_sqoop.sh`, `scripts/ubuntu/run_pig.sh`, `scripts/ubuntu/backup_hdfs.sh`, `scripts/ubuntu/restore_hdfs.sh`, `docs/setup/setup_hadoop.md`, `docs/setup/setup_ubuntu_cluster.md` |
 | `<Tên thành viên>` | Phân tích 1: MapReduce + Data Quality | Viết 8 job Hadoop Streaming; thiết kế output chuẩn cho Web; viết truy vấn Drill kiểm tra dữ liệu NULL, thiếu field, record hợp lệ và record bị loại; tạo báo cáo Data Quality trên HDFS. | `hadoop/mapreduce/`, `hadoop/drill/data_quality_queries.sql`, `scripts/ubuntu/run_mapreduce_all.sh`, `scripts/ubuntu/run_drill.sh`, `docs/setup/setup_hive_pig_drill.md` |

@@ -7,6 +7,5 @@ __pycache__/
 .idea/
 .vscode/
 backups/
-data/raw/*.json
 data/clean/*.csv
 data/clean/*.json
