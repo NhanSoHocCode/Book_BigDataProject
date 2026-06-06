@@ -1,5 +1,6 @@
 .env
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 *.log
@@ -7,5 +8,5 @@ __pycache__/
 .idea/
 .vscode/
 backups/
-data/clean/*.csv
-data/clean/*.json
+data/raw/fahasa_books_old.json
+data/raw/tiki_books_old.json
