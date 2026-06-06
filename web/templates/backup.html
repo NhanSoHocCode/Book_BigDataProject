@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block title %}Backup & Restore | Book Big Data{% endblock %}
+{% block content %}
+  <h1 class="h3">Backup & Restore</h1>
+  <p class="text-secondary">Create MySQL dumps and HDFS snapshots. Restore actions replace current data.</p>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card card-body h-100">
+        <h2 class="h5">MySQL</h2>
+        <form method="post" action="{{ url_for('backup.backup_mysql') }}" class="mb-3">
+          <button class="btn btn-primary">Backup MySQL</button>
+        </form>
+        <form method="post" action="{{ url_for('backup.restore_mysql') }}" onsubmit="return confirm('Restore MySQL from this dump?')">
+          <label class="form-label">Dump path inside configured backup directory</label>
+          <input class="form-control mb-2" name="backup_path" required>
+          <button class="btn btn-outline-danger">Restore MySQL</button>
+        </form>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card card-body h-100">
+        <h2 class="h5">HDFS</h2>
+        <form method="post" action="{{ url_for('backup.backup_hdfs') }}" class="row g-2 mb-3">
+          <div class="col"><select class="form-select" name="scope">
+            {% for scope in ["all", "raw", "clean", "analytics", "quality"] %}<option>{{ scope }}</option>{% endfor %}
+          </select></div>
+          <div class="col"><button class="btn btn-primary">Backup HDFS</button></div>
+        </form>
+        <form method="post" action="{{ url_for('backup.restore_hdfs') }}" class="row g-2" onsubmit="return confirm('Replace current HDFS data with this snapshot?')">
+          <div class="col-12"><input class="form-control" name="snapshot" placeholder="Snapshot timestamp, for example 20260602_120000" required></div>
+          <div class="col"><select class="form-select" name="scope">
+            {% for scope in ["raw", "clean", "analytics", "quality"] %}<option>{{ scope }}</option>{% endfor %}
+          </select></div>
+          <div class="col"><button class="btn btn-outline-danger">Restore HDFS</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="h5">History</h2>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Time</th><th>Storage</th><th>Action</th><th>Scope</th><th>Status</th><th>Path</th><th>Message</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+          <tr><td>{{ log.created_at }}</td><td>{{ log.storage_type }}</td><td>{{ log.action_type }}</td><td>{{ log.scope_name }}</td><td>{{ log.status }}</td><td>{{ log.backup_path }}</td><td>{{ log.message }}</td></tr>
+        {% else %}
+          <tr><td colspan="7" class="text-secondary">No backup history available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

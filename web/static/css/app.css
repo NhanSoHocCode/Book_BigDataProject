@@ -1,0 +1,15 @@
+body {
+  background: #f7f8fa;
+}
+
+.chart-panel {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  max-height: 28rem;
+  padding: 1rem;
+}
+
+.chart-panel canvas {
+  max-height: 25rem;
+}

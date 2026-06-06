@@ -1,0 +1,33 @@
+{
+  "endpoint": "https://tiki.vn/api/personalish/v1/blocks/listings",
+  "limit": 40,
+  "max_pages": 90,
+  "max_items": 6000,
+  "discover_categories": true,
+  "crawl_root_categories": true,
+  "crawl_detail_html": true,
+  "max_detail_requests": 6000,
+  "max_discovered_categories": 60,
+  "extra_params": {
+    "_v": "filter_revamp",
+    "aggregations": "2",
+    "include": "advertisement",
+    "version": "home-persionalized"
+  },
+  "request_delay_seconds": 0.5,
+  "timeout_seconds": 20,
+  "categories": [
+    {
+      "name": "Sách tiếng Việt",
+      "language_group": "Vietnamese",
+      "category_id": "316",
+      "url_key": "sach-truyen-tieng-viet"
+    },
+    {
+      "name": "English Books",
+      "language_group": "English",
+      "category_id": "320",
+      "url_key": "sach-tieng-anh"
+    }
+  ]
+}

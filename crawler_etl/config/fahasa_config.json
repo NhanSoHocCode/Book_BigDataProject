@@ -1,0 +1,44 @@
+{
+  "timeout_seconds": 20,
+  "request_delay_seconds": 0.5,
+  "max_pages_per_category": 3,
+  "max_products_per_category": 50,
+  "discover_categories": true,
+  "max_discovered_categories": 120,
+  "max_categories_per_seed": 60,
+  "max_category_depth": 2,
+  "category_seed_urls": [
+    {
+      "name": "Sách trong nước",
+      "language_group": "Vietnamese",
+      "url": "https://www.fahasa.com/sach-trong-nuoc.html"
+    },
+    {
+      "name": "Foreign Books",
+      "language_group": "English",
+      "url": "https://www.fahasa.com/foreigncategory.html"
+    }
+  ],
+  "category_url_prefixes": [
+    "https://www.fahasa.com/sach-trong-nuoc/",
+    "https://www.fahasa.com/foreigncategory/"
+  ],
+  "selectors": {
+    "category_links": [
+      ".ma-menu a",
+      ".nav-primary a",
+      ".fhs_top_menu a",
+      ".block-categories a",
+      ".category-menu a",
+      ".level0 a",
+      ".level1 a",
+      ".level2 a",
+      "a"
+    ],
+    "product_links": [
+      "a.product-image",
+      ".product-name a",
+      ".product-item-link"
+    ]
+  }
+}

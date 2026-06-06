@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}Analytics | Book Big Data{% endblock %}
+{% block content %}
+  <h1 class="h3">Analytics from HDFS</h1>
+  <p class="text-secondary">Flask reads MapReduce and Spark output directly through WebHDFS.</p>
+
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-6">
+      <select class="form-select" name="dataset">
+        {% for key, config in datasets.items() %}
+          <option value="{{ key }}" {% if key == selected %}selected{% endif %}>{{ config[0] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary">Load dataset</button></div>
+  </form>
+
+  {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+  <h2 class="h5">{{ title }}</h2>
+  {% if chart %}
+    <div class="chart-panel mb-4"><canvas id="analytics-chart"></canvas></div>
+  {% endif %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>{% for column in columns %}<td>{{ row.get(column, "") }}</td>{% endfor %}</tr>
+        {% else %}
+          <tr><td class="text-secondary">No HDFS result data available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
+{% block scripts %}
+  {% if chart %}
+    <script>renderBarChart("analytics-chart", {{ chart | tojson }});</script>
+  {% endif %}
+{% endblock %}
