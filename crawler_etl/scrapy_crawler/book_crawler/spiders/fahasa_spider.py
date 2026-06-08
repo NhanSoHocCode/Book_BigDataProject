@@ -190,12 +190,15 @@ def original_price_from_response(response) -> float | None:
 def discount_from_response(response) -> float | None:
     text = text_from_selectors(response, [".discount-percent", ".discount", ".price-discount"])
     discount = parse_discount(text)
+
     if discount is not None:
-        return discount
+        return abs(discount)
+
     for line in response_lines(response):
         discount = parse_discount(line)
         if discount is not None:
-            return discount
+            return abs(discount)
+
     return None
 
 
@@ -421,6 +424,9 @@ class FahasaSpider(scrapy.Spider):
                     return
 
                 detail_url = canonical_url(urljoin(response.url, href))
+                if not detail_url.endswith(".html"):
+                    continue
+
                 if detail_url in self.seen_urls:
                     continue
 

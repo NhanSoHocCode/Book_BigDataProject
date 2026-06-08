@@ -24,7 +24,7 @@ class DropDuplicateBooksPipeline:
         self.seen_keys: set[str] = set()
 
     def process_item(self, item, spider):
-        key = item.get("book_id") or item.get("url")
+        key = f"{item.get('source') or spider.name}:{item.get('book_id') or item.get('url')}"
         if key in self.seen_keys:
             raise DropItem(f"Duplicate book: {key}")
         self.seen_keys.add(key)

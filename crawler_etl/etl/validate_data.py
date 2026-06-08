@@ -12,26 +12,57 @@ from normalize import FIELDS
 
 def validate_record(record: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+
     for field in FIELDS:
         if field not in record:
             errors.append(f"missing field: {field}")
+
     if not record.get("book_id"):
         errors.append("book_id is required")
+
     if record.get("source") not in {"tiki", "fahasa"}:
         errors.append("source must be tiki or fahasa")
+
     if not record.get("title"):
         errors.append("title is required")
+
     if not record.get("url"):
         errors.append("url is required")
+
     for field in ("price", "original_price", "discount_rate", "rating", "review_count", "sold_count"):
         value = record.get(field)
         if value is None or not isinstance(value, (int, float)):
             errors.append(f"{field} must be numeric")
         elif value < 0:
             errors.append(f"{field} must not be negative")
+
+    price = record.get("price")
+    if isinstance(price, (int, float)) and price <= 0:
+        errors.append("price must be greater than 0")
+
+    original_price = record.get("original_price")
+    if isinstance(price, (int, float)) and isinstance(original_price, (int, float)):
+        if original_price < price:
+            errors.append("original_price must not be less than price")
+
     rating = record.get("rating")
     if isinstance(rating, (int, float)) and rating > 5:
         errors.append("rating must not exceed 5")
+
+    publish_year = record.get("publish_year")
+    if publish_year is not None:
+        if not isinstance(publish_year, int):
+            errors.append("publish_year must be integer or null")
+        elif not (1800 <= publish_year <= 2026):
+            errors.append("publish_year is out of valid range")
+
+    page_count = record.get("page_count")
+    if page_count is not None:
+        if not isinstance(page_count, int):
+            errors.append("page_count must be integer or null")
+        elif page_count <= 0:
+            errors.append("page_count must be greater than 0")
+
     return errors
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,50 @@ def write_csv(path: Path, records: list[dict[str, Any]]) -> None:
         writer.writerows(records)
 
 
+def normalize_key(value: Any) -> str:
+    text = "" if value is None else str(value).lower()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[^\w\s]", "", text)
+    return text.strip()
+
+
+def enrich_publish_year_from_fahasa(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    fahasa_index: dict[tuple[str, str], int] = {}
+
+    for record in records:
+        if record.get("source") != "fahasa":
+            continue
+
+        publish_year = record.get("publish_year")
+        if publish_year is None:
+            continue
+
+        key = (
+            normalize_key(record.get("title")),
+            normalize_key(record.get("author")),
+        )
+
+        if key[0] and key[1]:
+            fahasa_index[key] = publish_year
+
+    for record in records:
+        if record.get("source") != "tiki":
+            continue
+
+        if record.get("publish_year") is not None:
+            continue
+
+        key = (
+            normalize_key(record.get("title")),
+            normalize_key(record.get("author")),
+        )
+
+        if key in fahasa_index:
+            record["publish_year"] = fahasa_index[key]
+
+    return records
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", action="append", type=Path, dest="inputs")
@@ -60,6 +105,7 @@ def main() -> None:
 
     raw_records = read_records(args.inputs or DEFAULT_INPUTS)
     normalized = [normalize_record(record) for record in raw_records]
+    normalized = enrich_publish_year_from_fahasa(normalized)
     validated, rejected = partition_records(normalized)
     valid = deduplicate(validated)
     report = build_report(len(normalized), len(valid), len(rejected))

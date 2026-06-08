@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from crawler_etl.scrapy_crawler.book_crawler.items import BookItem
+from crawler_etl.scrapy_crawler.book_crawler.text_utils import fold_text
 
 
 DEFAULT_CONFIG = PROJECT_ROOT / "crawler_etl" / "config" / "tiki_config.json"
@@ -153,6 +154,63 @@ def request_url(endpoint: str, params: dict[str, Any]) -> str:
     return f"{endpoint}?{urlencode(params)}"
 
 
+def json_ld_name(value: Any) -> str | None:
+    if isinstance(value, dict):
+        return compact_text(value.get("name"))
+    if isinstance(value, str):
+        return compact_text(value)
+    return None
+
+
+def iter_json_ld_records(payload: Any):
+    if isinstance(payload, list):
+        for item in payload:
+            yield from iter_json_ld_records(item)
+    elif isinstance(payload, dict):
+        yield payload
+        graph = payload.get("@graph")
+        if isinstance(graph, list):
+            for item in graph:
+                yield from iter_json_ld_records(item)
+
+
+def tiki_json_ld_product(response) -> dict[str, Any]:
+    for script_text in response.css('script[type="application/ld+json"]::text').getall():
+        try:
+            payload = json.loads(script_text.strip())
+        except json.JSONDecodeError:
+            continue
+
+        for record in iter_json_ld_records(payload):
+            record_type = record.get("@type")
+            types = record_type if isinstance(record_type, list) else [record_type]
+
+            if "Product" in types:
+                return record
+
+    return {}
+
+def tiki_json_ld_metadata(response) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+
+    product = tiki_json_ld_product(response)
+    properties = product.get("additionalProperty") or product.get("additionalProperties") or []
+
+    if isinstance(properties, dict):
+        properties = [properties]
+
+    for prop in properties:
+        if not isinstance(prop, dict):
+            continue
+
+        name = compact_text(prop.get("name"))
+        value = compact_text(prop.get("value"))
+
+        if name and value:
+            metadata[name.casefold()] = value
+
+    return metadata
+
 class TikiSpider(scrapy.Spider):
     name = "tiki"
     allowed_domains = ["tiki.vn"]
@@ -163,6 +221,9 @@ class TikiSpider(scrapy.Spider):
         self.config_data = load_config(self.config_path)
         self.max_pages = int(self.config_data.get("max_pages", 1))
         self.max_items = int(self.config_data.get("max_items", 0))
+        self.crawl_detail_html = bool(self.config_data.get("crawl_detail_html", False))
+        self.max_detail_requests = int(self.config_data.get("max_detail_requests", 0))
+        self.detail_requests = 0
         self.discover_categories = bool(self.config_data.get("discover_categories", False))
         self.crawl_root_categories = bool(self.config_data.get("crawl_root_categories", True))
         self.max_discovered_categories = int(self.config_data.get("max_discovered_categories", 0))
@@ -233,13 +294,13 @@ class TikiSpider(scrapy.Spider):
 
             book_id = raw_item.get("id") or raw_item.get("sku")
             url = item_url(raw_item)
-            dedupe_key = str(book_id or url)
+            dedupe_key = f"tiki:{book_id or url}"
             if dedupe_key in self.seen_keys:
                 continue
             self.seen_keys.add(dedupe_key)
             self.items_yielded += 1
 
-            yield BookItem(
+            item = BookItem(
                 book_id=book_id,
                 source="tiki",
                 title=raw_item.get("name"),
@@ -258,6 +319,21 @@ class TikiSpider(scrapy.Spider):
                 page_count=None,
                 url=url,
             )
+
+            if (
+                self.crawl_detail_html
+                and url
+                and (not self.max_detail_requests or self.detail_requests < self.max_detail_requests)
+            ):
+                self.detail_requests += 1
+                yield scrapy.Request(
+                    url=url,
+                    callback=self.parse_detail_html,
+                    cb_kwargs={"item": item},
+                    priority=1,
+                )
+            else:
+                yield item
 
         if page < self.max_pages:
             yield self.build_listing_request(category, page=page + 1)
@@ -300,3 +376,23 @@ class TikiSpider(scrapy.Spider):
                     },
                     page=1,
                 )
+
+    def parse_detail_html(self, response, item: BookItem):
+        metadata = tiki_json_ld_metadata(response)
+
+        publisher = metadata.get("nhà xuất bản")
+        page_count = metadata.get("số trang")
+        publish_year = metadata.get("năm xuất bản") or metadata.get("năm xb")
+
+        product = tiki_json_ld_product(response)
+        if not publisher:
+            publisher = json_ld_name(product.get("manufacturer")) or json_ld_name(product.get("brand"))
+
+        if publisher:
+            item["publisher"] = publisher
+        if publish_year:
+            item["publish_year"] = publish_year
+        if page_count:
+            item["page_count"] = page_count
+
+        yield item

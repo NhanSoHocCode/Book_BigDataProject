@@ -5,6 +5,8 @@
   "max_items": 6000,
   "discover_categories": true,
   "crawl_root_categories": true,
+  "crawl_detail_html": true,
+  "max_detail_requests": 6000,
   "max_discovered_categories": 60,
   "extra_params": {
     "_v": "filter_revamp",
