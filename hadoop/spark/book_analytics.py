@@ -76,66 +76,15 @@ def normalize_books(books: DataFrame) -> DataFrame:
     ).fillna(NUMERIC_DEFAULTS)
 
 
-def create_books_spark_table(
-    spark: SparkSession,
-    books: DataFrame,
-    database: str,
-    table: str,
-    location: str,
-) -> DataFrame:
-    database = sql_name(database)
-    table = sql_name(table)
-    target = f"{database}.{table}"
-
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {database}")
-    spark.sql(f"DROP TABLE IF EXISTS {target}")
-    books.write.mode("overwrite").parquet(location)
-    spark.sql(
-        f"""
-        CREATE EXTERNAL TABLE {target} (
-          book_id STRING,
-          source STRING,
-          title STRING,
-          author STRING,
-          publisher STRING,
-          language_group STRING,
-          main_category STRING,
-          sub_category STRING,
-          price DOUBLE,
-          original_price DOUBLE,
-          discount_rate DOUBLE,
-          rating DOUBLE,
-          review_count BIGINT,
-          sold_count BIGINT,
-          publish_year INT,
-          page_count BIGINT,
-          url STRING
-        )
-        STORED AS PARQUET
-        LOCATION '{location}'
-        """
-    )
-    return spark.table(target)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", default="book_project")
-    parser.add_argument("--source-table", default="books_landing")
-    parser.add_argument("--target-table", default="books_spark")
-    parser.add_argument("--target-location", default="/book_project/warehouse/books_spark")
+    parser.add_argument("--source-table", default="books_spark")
     parser.add_argument("--output-root", default="/book_project/analytics/spark")
     args = parser.parse_args()
 
     spark = SparkSession.builder.appName("BookBigDataHiveAnalytics").enableHiveSupport().getOrCreate()
-    landing_books = read_hive_books(spark, args.database, args.source_table)
-    books = create_books_spark_table(
-        spark,
-        landing_books,
-        args.database,
-        args.target_table,
-        args.target_location,
-    )
+    books = read_hive_books(spark, args.database, args.source_table)
 
     popularity = (
         books.withColumn(

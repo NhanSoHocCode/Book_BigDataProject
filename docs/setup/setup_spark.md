@@ -10,19 +10,17 @@ chạy riêng `pip install pyspark` khi sử dụng `spark-submit`.
 
 ```text
 Hive Metastore/MySQL metadata
-book_project.books_landing
+book_project.books_spark
 -> PySpark with enableHiveSupport()
--> /book_project/warehouse/books_spark
--> book_project.books_spark
 -> /book_project/analytics/spark
 ```
 
-Trước khi chạy Spark, bảo đảm Hive Metastore đang chạy và bảng landing đã tồn
-tại:
+Trước khi chạy Spark, bảo đảm Hive Metastore đang chạy và bảng `books_spark`
+do Hive ánh xạ tới `/book_project/warehouse/books_spark` đã tồn tại:
 
 ```bash
 hive -e "USE book_project; SHOW TABLES;"
-hive -e "SELECT COUNT(*) FROM book_project.books_landing;"
+hive -e "SELECT COUNT(*) FROM book_project.books_spark;"
 ```
 
 Spark cần đọc được `hive-site.xml`. Nếu chưa copy, chạy:
@@ -37,18 +35,16 @@ Chạy:
 bash scripts/ubuntu/run_spark.sh
 ```
 
-Có thể override database, bảng nguồn, bảng đích và output:
+Có thể override database, bảng nguồn và output:
 
 ```bash
 HIVE_DATABASE=book_project \
-HIVE_SPARK_SOURCE_TABLE=books_landing \
-HIVE_SPARK_TARGET_TABLE=books_spark \
-HDFS_SPARK_WAREHOUSE=/book_project/warehouse/books_spark \
+HIVE_SPARK_SOURCE_TABLE=books_spark \
 HDFS_SPARK_OUTPUT=/book_project/analytics/spark \
 bash scripts/ubuntu/run_spark.sh
 ```
 
-Kiểm tra bảng Hive do Spark tạo:
+Kiểm tra bảng Hive nguồn:
 
 ```bash
 hive -e "SELECT COUNT(*) FROM book_project.books_spark;"

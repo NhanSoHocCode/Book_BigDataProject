@@ -18,7 +18,7 @@ Lưu ý: start-all.sh or stop-all.sh chỉ áp dụng cho Spark
 ```bash
 start-dfs.sh
 start-yarn.sh
-start-hbase.sh
+start-hbase.sh or ~/start-hbase-cluster.sh
 ```
 
 Kiểm tra:
@@ -70,7 +70,7 @@ Kiểm tra:
 
 ```bash
 hdfs dfs -ls /book_project/landing
-hdfs dfs -cat /book_project/landing/books/books_clean.csv
+hdfs dfs -cat /book_project/landing/books/part-m-00000
 ```
 
 ## Chạy pipeline HBase/Phoenix:

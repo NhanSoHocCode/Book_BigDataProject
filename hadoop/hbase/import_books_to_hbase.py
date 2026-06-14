@@ -36,6 +36,25 @@ INFO_COLUMNS = [
 PRICE_COLUMNS = ["price", "original_price", "discount_rate"]
 STAT_COLUMNS = ["rating", "review_count", "sold_count"]
 ALL_COLUMNS = ["book_id", *INFO_COLUMNS, *PRICE_COLUMNS, *STAT_COLUMNS]
+INPUT_COLUMNS = [
+    "book_id",
+    "source",
+    "title",
+    "author",
+    "publisher",
+    "language_group",
+    "main_category",
+    "sub_category",
+    "price",
+    "original_price",
+    "discount_rate",
+    "rating",
+    "review_count",
+    "sold_count",
+    "publish_year",
+    "page_count",
+    "url",
+]
 
 
 def run_text(command: list[str]) -> str:
@@ -118,8 +137,21 @@ def parse_json(content: str) -> list[dict[str, Any]] | None:
 def parse_delimited(content: str) -> list[dict[str, Any]]:
     sample = content[:4096]
     delimiter = "\t" if sample.count("\t") > sample.count(",") else ","
-    reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
-    return [normalize_row(row) for row in reader]
+    rows = list(csv.reader(io.StringIO(content), delimiter=delimiter))
+    if not rows:
+        return []
+
+    first_row = [normalize_key(value) for value in rows[0]]
+    has_header = {"book_id", "source", "title"}.issubset(set(first_row))
+    if has_header:
+        reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
+        return [normalize_row(row) for row in reader]
+
+    records = []
+    for row in rows:
+        padded = [*row, *[""] * (len(INPUT_COLUMNS) - len(row))]
+        records.append(normalize_row(dict(zip(INPUT_COLUMNS, padded[: len(INPUT_COLUMNS)]))))
+    return records
 
 
 def parse_records(content: str) -> list[dict[str, Any]]:
@@ -134,7 +166,10 @@ def clean_value(value: Any) -> str:
         return ""
     if isinstance(value, (dict, list)):
         return json.dumps(value, ensure_ascii=False)
-    return str(value).strip()
+    text = str(value).strip()
+    if text.lower() == "null":
+        return ""
+    return text
 
 
 def row_key(row: dict[str, Any]) -> str:
