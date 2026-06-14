@@ -1,22 +1,35 @@
 # Cài đặt Spark
 
-Cài Apache Spark `3.5.8` có hỗ trợ Hive và bảo đảm gọi được `spark-submit`
-thông qua biến `PATH`.
+Cài Apache Spark `3.5.8` bản pre-built for Hadoop 3 và bảo đảm gọi được
+`spark-submit` thông qua biến `PATH`.
 
 PySpark đã nằm trong bản phân phối Apache Spark. Pipeline Ubuntu không cần
 chạy riêng `pip install pyspark` khi sử dụng `spark-submit`.
 
-Nếu muốn kiểm thử Spark local, cài thêm Python package PySpark `3.5.8`:
+Ứng dụng Spark hiện chạy theo hướng Spark SQL + Hive Metastore:
 
-```bash
-python3 -m pip install -r requirements-spark.txt
+```text
+Hive Metastore/MySQL metadata
+book_project.books_landing
+-> PySpark with enableHiveSupport()
+-> /book_project/warehouse/books_spark
+-> book_project.books_spark
+-> /book_project/analytics/spark
 ```
 
-Giữ phiên bản PySpark local tương thích với phiên bản Spark được cài trên
-cluster.
+Trước khi chạy Spark, bảo đảm Hive Metastore đang chạy và bảng landing đã tồn
+tại:
 
-Ứng dụng Spark đọc bảng `book_project.books_valid` và ghi kết quả JSON Lines
-vào `/book_project/analytics/spark`.
+```bash
+hive -e "USE book_project; SHOW TABLES;"
+hive -e "SELECT COUNT(*) FROM book_project.books_landing;"
+```
+
+Spark cần đọc được `hive-site.xml`. Nếu chưa copy, chạy:
+
+```bash
+cp $HIVE_HOME/conf/hive-site.xml $SPARK_HOME/conf/
+```
 
 Chạy:
 
@@ -24,9 +37,37 @@ Chạy:
 bash scripts/ubuntu/run_spark.sh
 ```
 
-Kiểm tra:
+Có thể override database, bảng nguồn, bảng đích và output:
+
+```bash
+HIVE_DATABASE=book_project \
+HIVE_SPARK_SOURCE_TABLE=books_landing \
+HIVE_SPARK_TARGET_TABLE=books_spark \
+HDFS_SPARK_WAREHOUSE=/book_project/warehouse/books_spark \
+HDFS_SPARK_OUTPUT=/book_project/analytics/spark \
+bash scripts/ubuntu/run_spark.sh
+```
+
+Kiểm tra bảng Hive do Spark tạo:
+
+```bash
+hive -e "SELECT COUNT(*) FROM book_project.books_spark;"
+hdfs dfs -ls /book_project/warehouse/books_spark
+```
+
+Kiểm tra output analytics:
 
 ```bash
 hdfs dfs -ls /book_project/analytics/spark
 hdfs dfs -cat /book_project/analytics/spark/source_comparison/part-*
+```
+
+Các output Spark gồm:
+
+```text
+popular_books
+potential_books
+source_comparison
+category_performance
+price_segment
 ```
