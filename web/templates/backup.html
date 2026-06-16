@@ -1,54 +1,74 @@
 {% extends "layout.html" %}
-{% block title %}Backup & Restore | Book Big Data{% endblock %}
+{% block title %}Backup HBase | Book Big Data{% endblock %}
 {% block content %}
-  <h1 class="h3">Backup & Restore</h1>
-  <p class="text-secondary">Create MySQL dumps and HDFS snapshots. Restore actions replace current data.</p>
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">Backup</div>
+      <h1 class="h3 mb-1">Backup & Restore HBase</h1>
+      <p class="text-secondary mb-0">Quản lý backup của bảng <code>{{ hbase_table }}</code>.</p>
+    </div>
+    <span class="badge {{ 'badge-mock' if is_mock else 'text-bg-success' }}">{{ "Books" }}</span>
+  </div>
+
+  {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
 
   <div class="row g-3 mb-4">
-    <div class="col-md-6">
+    <div class="col-lg-5">
       <div class="card card-body h-100">
-        <h2 class="h5">MySQL</h2>
-        <form method="post" action="{{ url_for('backup.backup_mysql') }}" class="mb-3">
-          <button class="btn btn-primary">Backup MySQL</button>
-        </form>
-        <form method="post" action="{{ url_for('backup.restore_mysql') }}" onsubmit="return confirm('Restore MySQL from this dump?')">
-          <label class="form-label">Dump path inside configured backup directory</label>
-          <input class="form-control mb-2" name="backup_path" required>
-          <button class="btn btn-outline-danger">Restore MySQL</button>
+        <h2 class="h5">Tạo snapshot</h2>
+        <p class="text-secondary">Snapshot dùng để backup trạng thái hiện tại của bảng.</p>
+        <form method="post" action="{{ url_for('backup.backup_hbase') }}">
+          <button class="btn btn-primary">Tạo HBase Snapshot</button>
         </form>
       </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-lg-7">
       <div class="card card-body h-100">
-        <h2 class="h5">HDFS</h2>
-        <form method="post" action="{{ url_for('backup.backup_hdfs') }}" class="row g-2 mb-3">
-          <div class="col"><select class="form-select" name="scope">
-            {% for scope in ["all", "raw", "clean", "analytics", "quality"] %}<option>{{ scope }}</option>{% endfor %}
-          </select></div>
-          <div class="col"><button class="btn btn-primary">Backup HDFS</button></div>
-        </form>
-        <form method="post" action="{{ url_for('backup.restore_hdfs') }}" class="row g-2" onsubmit="return confirm('Replace current HDFS data with this snapshot?')">
-          <div class="col-12"><input class="form-control" name="snapshot" placeholder="Snapshot timestamp, for example 20260602_120000" required></div>
-          <div class="col"><select class="form-select" name="scope">
-            {% for scope in ["raw", "clean", "analytics", "quality"] %}<option>{{ scope }}</option>{% endfor %}
-          </select></div>
-          <div class="col"><button class="btn btn-outline-danger">Restore HDFS</button></div>
+        <h2 class="h5">Restore</h2>
+        <p class="text-secondary">Restore sẽ thay trạng thái bảng bằng version backup đã chọn.</p>
+        <form method="post" action="{{ url_for('backup.restore_hbase') }}" class="row g-2" onsubmit="return confirm('Restore snapshot này?')">
+          <div class="col-md-8">
+            <select class="form-select" name="snapshot" required {% if not snapshots %}disabled{% endif %}>
+              {% for snapshot in snapshots %}
+                <option value="{{ snapshot.name }}">{{ snapshot.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4"><button class="btn btn-outline-danger w-100" {% if not snapshots %}disabled{% endif %}>Restore</button></div>
         </form>
       </div>
     </div>
   </div>
 
-  <h2 class="h5">History</h2>
-  <div class="table-responsive">
-    <table class="table table-sm table-striped">
-      <thead><tr><th>Time</th><th>Storage</th><th>Action</th><th>Scope</th><th>Status</th><th>Path</th><th>Message</th></tr></thead>
+  <h2 class="h5 mb-3">Danh sách backup</h2>
+  <div class="table-shell">
+    <div class="table-responsive">
+    <table class="table book-table mb-0">
+      <thead><tr><th>Tên snapshot</th><th>Thời gian</th><th>Bảng</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead>
       <tbody>
-        {% for log in logs %}
-          <tr><td>{{ log.created_at }}</td><td>{{ log.storage_type }}</td><td>{{ log.action_type }}</td><td>{{ log.scope_name }}</td><td>{{ log.status }}</td><td>{{ log.backup_path }}</td><td>{{ log.message }}</td></tr>
+        {% for snapshot in snapshots %}
+          <tr>
+            <td class="font-monospace">{{ snapshot.name }}</td>
+            <td>{{ snapshot.created_at }}</td>
+            <td>{{ snapshot.table_name }}</td>
+            <td><span class="badge text-bg-success">{{ snapshot.status }}</span></td>
+            <td>{{ snapshot.note }}</td>
+            <td>
+              <form
+                method="post"
+                action="{{ url_for('backup.delete_hbase_snapshot') }}"
+                onsubmit="return confirm('Xóa vĩnh viễn snapshot {{ snapshot.name }}? Thao tác này không thể hoàn tác.')"
+              >
+                <input type="hidden" name="snapshot" value="{{ snapshot.name }}">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>
+              </form>
+            </td>
+          </tr>
         {% else %}
-          <tr><td colspan="7" class="text-secondary">No backup history available.</td></tr>
+          <tr><td colspan="6" class="text-secondary">Chưa có snapshot.</td></tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 {% endblock %}

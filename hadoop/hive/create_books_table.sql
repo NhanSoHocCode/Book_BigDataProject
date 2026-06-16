@@ -1,52 +1,68 @@
-CREATE DATABASE IF NOT EXISTS book_project;
-USE book_project;
+CREATE DATABASE IF NOT EXISTS bookbigdata;
+USE bookbigdata;
 
-DROP TABLE IF EXISTS books_raw;
-CREATE EXTERNAL TABLE books_raw (
-  book_id STRING,
-  source STRING,
-  title STRING,
-  author STRING,
-  publisher STRING,
-  language_group STRING,
-  main_category STRING,
-  sub_category STRING,
-  price STRING,
-  original_price STRING,
-  discount_rate STRING,
-  rating STRING,
-  review_count STRING,
-  sold_count STRING,
-  publish_year STRING,
-  page_count STRING,
-  url STRING
+CREATE EXTERNAL TABLE books_landing (
+	book_id STRING,
+	source STRING,
+	title STRING,
+	author STRING,
+	publisher STRING,
+	language_group STRING,
+	main_category STRING,
+	sub_category STRING,
+	price DOUBLE,
+	original_price DOUBLE,
+	discount_rate DOUBLE,
+	rating DOUBLE,
+	review_count INT,
+	sold_count INT,
+	publish_year INT,
+	page_count INT,
+	url STRING
 )
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
 STORED AS TEXTFILE
-LOCATION '/book_project/raw/books';
+LOCATION '/book_project/landing/books'; 
 
-DROP TABLE IF EXISTS books_valid;
-CREATE EXTERNAL TABLE books_valid (
-  book_id STRING,
-  source STRING,
-  title STRING,
-  author STRING,
-  publisher STRING,
-  language_group STRING,
-  main_category STRING,
-  sub_category STRING,
-  price DOUBLE,
-  original_price DOUBLE,
-  discount_rate DOUBLE,
-  rating DOUBLE,
-  review_count BIGINT,
-  sold_count BIGINT,
-  publish_year INT,
-  page_count INT,
-  url STRING
+CREATE EXTERNAL TABLE books_mr (
+	book_id STRING,
+	source STRING,
+	title STRING,
+	author STRING,
+	publisher STRING,
+	language_group STRING,
+	main_category STRING,
+	price DOUBLE,
+	rating DOUBLE,
+	review_count INT,
+	sold_count INT
 )
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
 STORED AS TEXTFILE
-LOCATION '/book_project/clean/books_valid';
+LOCATION '/book_project/warehouse/books_mr'; 
+
+CREATE EXTERNAL TABLE books_spark (
+	book_id STRING,
+	source STRING,
+	title STRING,
+	author STRING,
+	publisher STRING,
+	language_group STRING,
+	main_category STRING,
+	sub_category STRING,
+	price DOUBLE,
+	original_price DOUBLE,
+	discount_rate DOUBLE,
+	rating DOUBLE,
+	review_count INT,
+	sold_count INT,
+	publish_year INT,
+    page_count INT,
+	url STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+STORED AS TEXTFILE
+LOCATION '/book_project/warehouse/books_spark'; 

@@ -1,40 +1,93 @@
 {% extends "layout.html" %}
 {% block title %}Analytics | Book Big Data{% endblock %}
 {% block content %}
-  <h1 class="h3">Analytics from HDFS</h1>
-  <p class="text-secondary">Flask reads MapReduce and Spark output directly through WebHDFS.</p>
-
-  <form class="row g-2 mb-3" method="get">
-    <div class="col-md-6">
-      <select class="form-select" name="dataset">
-        {% for key, config in datasets.items() %}
-          <option value="{{ key }}" {% if key == selected %}selected{% endif %}>{{ config[0] }}</option>
-        {% endfor %}
-      </select>
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">HDFS Analytics</div>
+      <h1 class="h3 mb-1">Analytics</h1>
+      <p class="text-secondary mb-0">Phân tích từ MapReduce và Spark</p>
     </div>
-    <div class="col-md-2"><button class="btn btn-primary">Load dataset</button></div>
-  </form>
-
-  {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
-  <h2 class="h5">{{ title }}</h2>
-  {% if chart %}
-    <div class="chart-panel mb-4"><canvas id="analytics-chart"></canvas></div>
-  {% endif %}
-  <div class="table-responsive">
-    <table class="table table-sm table-striped">
-      <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
-      <tbody>
-        {% for row in rows %}
-          <tr>{% for column in columns %}<td>{{ row.get(column, "") }}</td>{% endfor %}</tr>
-        {% else %}
-          <tr><td class="text-secondary">No HDFS result data available.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <span class="badge {{ 'badge-mock' if is_mock else 'text-bg-success' }}">{{ "Books" }}</span>
   </div>
+
+  <div class="row g-4 mb-4">
+    {% for group_name, group_items in groups.items() %}
+      <div class="col-lg-6">
+        <section class="analytics-group h-100 {% if selected_group == group_name %}is-active{% endif %}">
+          <div class="analytics-group-header">
+            <div>
+              <div class="eyebrow">{{ group_name }}</div>
+              <h2 class="h5 mb-1">
+                {% if group_name == "MapReduce" %}Hadoop Streaming Jobs{% else %}Phân tích nâng cao{% endif %}
+              </h2>
+            </div>
+            <span class="group-count">{{ group_items | length }} dataset</span>
+          </div>
+          <div class="analytics-links">
+            {% for key, label in group_items %}
+              <a
+                class="analytics-link {% if key == selected %}active{% endif %}"
+                href="{{ url_for('analytics.index', dataset=key) }}"
+              >
+                <span>{{ label }}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    {% endfor %}
+  </div>
+
+  <section class="result-panel">
+    <div class="result-panel-header">
+      <div>
+        <div class="eyebrow">{{ selected_group }}</div>
+        <h2 class="h5 mb-0">{{ title }}</h2>
+      </div>
+    </div>
+
+    {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+
+    <div class="row g-4">
+      
+      <div class="col-12">
+        <div class="table-shell" style="max-height: 350px; overflow-y: auto;">
+          <div class="table-responsive">
+            <table class="table table-sm book-table mb-0">
+              <thead>
+                <tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                  <tr>{% for column in columns %}<td>{{ row.get(column, "") }}</td>{% endfor %}</tr>
+                {% else %}
+                  <tr><td colspan="{{ columns|length }}" class="empty-state">Chưa có dữ liệu analytics.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        {% if chart %}
+          <div class="chart-panel" style="height: 420px; width: 100%;">
+            <canvas id="analytics-chart"></canvas>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </section>
 {% endblock %}
 {% block scripts %}
   {% if chart %}
-    <script>renderBarChart("analytics-chart", {{ chart | tojson }});</script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        renderAdvancedChart("analytics-chart", {{ chart | tojson }});
+      });
+    </script>
   {% endif %}
 {% endblock %}

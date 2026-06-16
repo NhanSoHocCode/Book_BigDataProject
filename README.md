@@ -51,6 +51,8 @@ Các thư viện Python được khai báo trong `requirements.txt`:
 | --- | --- |
 | `requests` | Gọi Tiki API và WebHDFS REST API |
 | `flask` | Xây dựng Web |
+| `happybase` | Thực hiện thêm, cập nhật và xóa dữ liệu trực tiếp trên HBase qua Thrift Server |
+| `JayDeBeApi`, `JPype1` | Kết nối Phoenix JDBC thick client để chạy `SELECT` và `EXPLAIN` từ Flask trong WSL |
 | `mysql-connector-python` | Kết nối script import với MySQL trong WSL |
 | `python-dotenv` | Đọc cấu hình từ file `.env` |
 | `scrapy` | Crawl dữ liệu Tiki và Fahasa bằng spider |
@@ -97,7 +99,8 @@ java -version
 - Phân tích dữ liệu sách bằng Hadoop MapReduce và Spark/PySpark.
 - Kiểm tra chất lượng và đối soát dữ liệu giữa các dataset bằng Apache Drill.
 - Import dữ liệu sách từ HDFS vào HBase dưới dạng NoSQL Column-Family.
-- Tạo Phoenix View ánh xạ với bảng HBase để Flask thực hiện CRUD, tìm kiếm, lọc và truy vấn SQL.
+- Tạo Phoenix View ánh xạ với bảng HBase để Flask hiển thị danh sách, tìm kiếm, lọc, phân trang và truy vấn SQL.
+- Sử dụng HappyBase và HBase Thrift Server để Flask thêm, cập nhật và xóa dữ liệu trực tiếp trên HBase.
 - Lưu kết quả phân tích và báo cáo Data Quality trên HDFS để Web Flask đọc và hiển thị.
 - Hiển thị danh sách sách, chức năng quản lý dữ liệu, bảng phân tích, biểu đồ và báo cáo chất lượng dữ liệu trên Web Flask.
 - Hỗ trợ backup và restore dữ liệu HBase bằng HBase Snapshot.
@@ -128,21 +131,21 @@ HDFS Landing Dataset
         v                    v
 Import vào HBase        Pig tạo dataset phân tích
         |                    |
-        v                    +----------------------+
-Phoenix View                  |                      |
-        |                     v                      v
-        v              books_mapreduce          books_spark
-Flask Web CRUD/Search         |                      |
-        |                     v                      v
-        v                MapReduce              Hive External Table
-HBase Snapshot Backup         |                      |
-                              v                      v
-                         HDFS Analytics       Spark/PySpark
-                                                    |
-                                                    v
-                                               HDFS Analytics
+        +-------------+      +----------------------+
+        |             |      |                      |
+        v             v      v                      v
+Phoenix View     HBase Thrift / HappyBase      books_mr     books_spark
+        |             |                              |                 |
+        v             v                              v                 v
+Flask JDBC SELECT/Search  Flask CRUD             MapReduce       Hive External Table
+        |             |                              |                 |
+        +------+------+                              v                 v
+               |                                HDFS Analytics   Spark/PySpark
+               v                                                       |
+       HBase Snapshot Backup                                          v
+                                                                 HDFS Analytics
 
-Drill đọc Landing, books_mapreduce và books_spark
+Drill đọc Landing, books_mr và books_spark
         |
         v
 HDFS Data Quality Reports
@@ -285,8 +288,8 @@ Pig không làm sạch lại toàn bộ dữ liệu vì Python ETL đã xử lý
 Pig được dùng để tiền xử lý dữ liệu trên HDFS và tạo các dataset chuyên biệt:
 
 ```text
-/book_project/warehouse/mapreduce/books_mr
-/book_project/warehouse/spark/books_spark
+/book_project/warehouse/books_mr
+/book_project/warehouse/books_spark
 ```
 
 Dataset `books_mr` có dạng TSV phẳng, gồm các cột cần thiết cho Hadoop
@@ -308,26 +311,25 @@ Các bảng dự kiến:
 
 ```text
 books_landing
-books_mapreduce
+books_mr
 books_spark
 ```
 
 ### 7.7. MapReduce
 
 MapReduce được viết bằng Python thông qua Hadoop Streaming. Hệ thống gồm 8 job
-với độ phức tạp tăng dần từ phép đếm, tính trung bình, tìm cực trị đến Top-N và
-phân tích nhiều nhóm:
+phục vụ so sánh nguồn dữ liệu, phân tích category, giá, rating và xu hướng bán:
 
 | Job | Bài toán | Vai trò phân tích |
 | --- | --- | --- |
 | `mr01_source_count` | Đếm số sách theo nguồn | Kiểm tra phân bố dữ liệu giữa Tiki và Fahasa |
 | `mr02_language_count` | Đếm số sách theo nhóm ngôn ngữ | So sánh sách tiếng Việt và sách ngoại văn |
 | `mr03_category_count` | Đếm số sách theo category lớn | Xác định nhóm sách phổ biến |
-| `mr04_author_count` | Đếm số sách theo tác giả | Tìm tác giả có danh mục sách phong phú |
-| `mr05_avg_price_by_category` | Tính giá trung bình theo category | So sánh mặt bằng giá giữa các thể loại |
-| `mr06_max_price_by_category` | Tìm sách giá cao nhất theo category | Minh họa phép tìm cực trị và giữ metadata sách |
-| `mr07_top_sold_books` | Tìm top sách bán chạy nhất | Phân tích xếp hạng Top-N toàn hệ thống |
-| `mr08_best_seller_by_group` | Tìm sách bán nhiều nhất theo tác giả, nhà xuất bản và category | Phân tích nhiều loại key và tìm cực trị theo từng nhóm |
+| `mr04_avg_price_by_category` | Tính giá trung bình theo category | Phân tích phân khúc giá |
+| `mr05_top_sold_books` | Tìm Top 10 sách bán chạy nhất | Phân tích xu hướng mua toàn hệ thống |
+| `mr06_top_authors_by_sales` | Tìm Top 10 tác giả có tổng số sách bán nhiều nhất | Xác định tác giả có sức hút thị trường |
+| `mr07_avg_rating_by_category` | Tính rating trung bình theo category | Xác định category được đánh giá tốt |
+| `mr08_top_rated_category_books` | Tìm category có rating trung bình cao nhất và danh sách sách trong category | Đi sâu vào category được yêu thích nhất |
 
 Mỗi job có cấu trúc thống nhất:
 
@@ -337,7 +339,8 @@ hadoop/mapreduce/<job_name>/
 `-- reducer.py
 ```
 
-MapReduce đọc trực tiếp dataset `books_mr` trên HDFS. Kết quả được lưu trên HDFS và hiển thị trên Web bằng WebHDFS API.
+MapReduce đọc trực tiếp dataset `books_mr` trên HDFS. Mỗi job dùng một reducer
+và lưu kết quả tại `result.csv` để Web đọc bằng WebHDFS API.
 
 ### 7.8. Spark / PySpark
 
@@ -356,11 +359,11 @@ trực tiếp từ HDFS. Kết quả được lưu trên HDFS để Flask hiển
 
 Apache Drill được dùng để kiểm tra chất lượng và đối soát dữ liệu trực tiếp trên HDFS.
 
-Drill thực hiện kiểm tra giữa các dataset:
+Drill truy vấn các Hive External Table books_landing, books_mr và books_spark để đối soát dữ liệu.
 
 ```text
 books_landing
-books_mapreduce
+books_mr
 books_spark
 ```
 
@@ -386,24 +389,54 @@ Kết quả Drill được lưu trên HDFS và hiển thị trong mục Data Qua
 **HBase**
 
 - Lưu dữ liệu sách dưới dạng NoSQL Column-Family.
-- Dữ liệu được import từ HDFS landing vào bảng `books_hbase`.
+- Tạo namespace `bookbigdata` và bảng `bookbigdata:books_hbase`.
+- Bảng sử dụng ba Column Family: `info`, `price` và `stat`.
+- Dữ liệu được import từ HDFS landing vào bảng `bookbigdata:books_hbase`.
 - Dữ liệu import vào HBase được lưu ở dạng chuỗi để dễ ánh xạ bằng Phoenix View.
 - Là nơi phục vụ chính cho các chức năng quản lý sách trên Web.
+- Khởi chạy HBase Thrift Server để Flask thực hiện thêm, cập nhật và xóa thông qua HappyBase.
 - Hỗ trợ backup và restore bằng HBase Snapshot.
 
 **Phoenix**
 
-- Tạo Phoenix View ánh xạ với bảng `books_hbase`.
-- Cho phép Flask thực hiện truy vấn SQL trên HBase.
-- Hỗ trợ `SELECT`, `UPSERT`, `DELETE` cho chức năng hiển thị, CRUD, tìm kiếm và lọc sách.
+- Tạo mapped View `"bookbigdata"."books_hbase"` ánh xạ trực tiếp với bảng HBase vật lý.
+- Tạo View read-only `BOOKBIGDATA.BOOKS` làm tên truy vấn thống nhất cho Flask.
+- Phoenix View ánh xạ trực tiếp bảng HBase là read-only.
+- Cho phép Flask thực hiện `SELECT`, hiển thị danh sách, tìm kiếm, lọc, phân trang và truy vấn SQL.
+- Bật namespace mapping để mapped View `"bookbigdata"."books_hbase"` ánh xạ đúng bảng HBase `bookbigdata:books_hbase`:
+
+```xml
+<property>
+  <name>phoenix.schema.isNamespaceMappingEnabled</name>
+  <value>true</value>
+</property>
+```
+
+- Flask chạy trong WSL và kết nối Phoenix bằng JDBC thick client thông qua `JayDeBeApi`/`JPype1`, không cần Phoenix Query Server.
+
+**HappyBase**
+
+- Kết nối Flask với HBase thông qua HBase Thrift Server.
+- Thực hiện thêm và cập nhật sách bằng `put`.
+- Thực hiện xóa sách bằng `delete`.
+- Sử dụng RowKey có dạng `source#book_id`.
+
+Khởi chạy Thrift Server trước khi chạy Flask ở chế độ live:
+
+```bash
+hbase-daemon.sh start thrift
+jps
+```
+
+`jps` cần hiển thị tiến trình `ThriftServer`.
 
 ### 7.11. Flask Web
 
 Chức năng quản lý sách:
 
-- Xem danh sách và chi tiết sách từ HBase thông qua Phoenix.
-- Thêm, sửa và xóa sách bằng Phoenix SQL.
-- Tìm kiếm và phân trang.
+- Xem danh sách và chi tiết sách từ HBase thông qua Phoenix View.
+- Tìm kiếm, lọc, sắp xếp và phân trang bằng Phoenix SQL.
+- Thêm, sửa và xóa sách trực tiếp trên HBase thông qua HappyBase.
 - Lọc theo nguồn, category, tác giả, nhà xuất bản và khoảng giá.
 - Cung cấp trang nhập truy vấn `SELECT` để kiểm tra dữ liệu HBase.
 
@@ -424,12 +457,14 @@ Chức năng Backup & Restore:
 - Tạo HBase Snapshot.
 - Liệt kê các snapshot hiện có.
 - Restore hoặc clone snapshot được chọn.
+- Xóa snapshot không còn cần thiết sau bước xác nhận.
 - Hiển thị trạng thái backup và restore.
 
 ## 8. Lưu trữ dữ liệu trên HDFS và HBase
 
 HDFS lưu dữ liệu batch, dataset phân tích và kết quả báo cáo. HBase lưu dữ
-liệu sách phục vụ Web CRUD, tìm kiếm và truy vấn bằng Phoenix.
+liệu sách phục vụ Web. Phoenix View đảm nhiệm truy vấn đọc, còn HappyBase đảm
+nhiệm thêm, cập nhật và xóa trực tiếp trên HBase.
 
 Cấu trúc HDFS đề xuất:
 
@@ -438,20 +473,20 @@ Cấu trúc HDFS đề xuất:
 |-- landing/
 |   `-- books/
 |-- warehouse/
-|   |-- mapreduce/
-|   |   `-- books_mr/
-|   `-- spark/
-|       `-- books_spark/
+|   |-- books_m
+|   |
+|   `-- books_spark
+|
 |-- analytics/
 |   |-- mapreduce/
 |   |   |-- source_count/
 |   |   |-- language_count/
 |   |   |-- category_count/
-|   |   |-- author_count/
 |   |   |-- avg_price_by_category/
-|   |   |-- max_price_by_category/
 |   |   |-- top_sold_books/
-|   |   `-- best_seller_by_group/
+|   |   |-- top_authors_by_sales/
+|   |   |-- avg_rating_by_category/
+|   |   `-- top_rated_category_books/
 |   `-- spark/
 |       |-- popular_books/
 |       |-- potential_books/
@@ -459,25 +494,28 @@ Cấu trúc HDFS đề xuất:
 |       |-- category_performance/
 |       `-- price_segment/
 |-- quality/
-|   `-- drill_report/
-`-- hbase_import/
-    `-- books/
+|   `-- quality_report.json
+
+/hbase/\
+|-- data/
+    `-- bookbigdata/books_hbase
 ```
 
 Cấu trúc HBase/Phoenix đề xuất:
 
 ```text
-HBase table: books_hbase
-Phoenix view: BOOKS
+HBase table: bookbigdata:books_hbase
+Phoenix mapped view: "bookbigdata"."books_hbase"
+Phoenix web view: BOOKBIGDATA.BOOKS
 RowKey: source#book_id
 Column-Family:
 |-- info
-|-- pricing
-`-- metrics
+|-- price
+`-- stat
 ```
 
-Kết quả MapReduce, Spark/PySpark và Drill được lưu trên HDFS ở định dạng TSV,
-CSV hoặc JSON để Flask dễ đọc và chuyển thành dữ liệu cho Chart.js.
+Kết quả MapReduce được lưu dưới dạng CSV; kết quả Spark/PySpark và Drill được
+lưu dưới dạng JSON để Flask dễ đọc và chuyển thành dữ liệu cho Chart.js.
 
 ## 9. Bảng, dataset và view chính
 
@@ -488,17 +526,19 @@ CSV hoặc JSON để Flask dễ đọc và chuyển thành dữ liệu cho Char
 ### 9.2. HDFS/Hive
 
 - `books_landing`: dữ liệu từ MySQL sau khi Sqoop import.
-- `books_mapreduce`: dataset do Pig tạo cho Hadoop Streaming.
+- `books_mr`: dataset do Pig tạo cho Hadoop Streaming.
 - `books_spark`: dataset do Pig tạo cho Spark/PySpark.
 - `analytics/mapreduce/*`: output các job MapReduce.
 - `analytics/spark/*`: output các job Spark.
-- `quality/drill_report`: output báo cáo Data Quality.
+- `quality/quality_report.json`: output báo cáo Data Quality.
 
 ### 9.3. HBase/Phoenix
 
-- `books_hbase`: bảng HBase lưu dữ liệu sách dạng Column-Family.
-- `BOOKS`: Phoenix View ánh xạ với `books_hbase`.
-- HBase Snapshot: các bản backup theo thời điểm của bảng `books_hbase`.
+- `bookbigdata:books_hbase`: bảng HBase lưu dữ liệu sách dạng Column-Family.
+- `"bookbigdata"."books_hbase"`: Phoenix mapped View ánh xạ trực tiếp bảng HBase vật lý.
+- `BOOKBIGDATA.BOOKS`: Phoenix View read-only dùng làm tên truy vấn thống nhất cho Web.
+- HBase Thrift Server và HappyBase: lớp truy cập dùng cho thao tác CRUD.
+- HBase Snapshot: các bản backup theo thời điểm của bảng `bookbigdata:books_hbase`.
 
 ## 10. Cấu trúc Web
 
@@ -528,6 +568,8 @@ Menu chính gồm:
 - Spark/PySpark
 - HBase
 - Phoenix
+- HappyBase
+- HBase Thrift Server
 - ZooKeeper
 
 ## 12. Phân công công việc
@@ -553,22 +595,26 @@ docs/setup/
 | Thành viên | Phần phụ trách | Nội dung thực hiện | File và thư mục chính |
 | --- | --- | --- | --- |
 | `<Tên thành viên>` | Crawl + ETL | Khảo sát Tiki và Fahasa; crawl bằng Scrapy; lưu raw JSON; chuẩn hóa schema; validate dữ liệu; xuất `books_clean.csv`. | `crawler_etl/config/`, `crawler_etl/scrapy_crawler/`, `crawler_etl/etl/`, `data/raw/`, `data/clean/` |
-| `<Tên thành viên>` | Flask Web + Backup HBase | Xây dựng Web CRUD sách từ HBase qua Phoenix; search, filter, phân trang; giao diện Bootstrap; Chart.js; trang truy vấn Phoenix SQL; đọc Analytics và Data Quality từ HDFS bằng WebHDFS; giao diện backup/restore HBase Snapshot. | `web/app.py`, `web/routes/`, `web/services/`, `web/templates/`, `web/static/`, `scripts/windows/run_web.bat` |
+| `<Tên thành viên>` | Flask Web + Backup HBase | Xây dựng Web đọc, search, filter và phân trang qua Phoenix; thực hiện CRUD trực tiếp trên HBase bằng HappyBase; giao diện Bootstrap; Chart.js; trang truy vấn Phoenix SQL; đọc Analytics và Data Quality từ HDFS bằng WebHDFS; giao diện backup/restore HBase Snapshot. | `web/app.py`, `web/routes/`, `web/services/`, `web/templates/`, `web/static/`, `scripts/windows/run_web.bat` |
 | `<Tên thành viên>` | MySQL + Hadoop nền + Pig/Hive/Drill | Thiết kế schema MySQL staging; import CSV; cấu hình HDFS, YARN, Sqoop; dùng Pig tạo dataset MapReduce/Spark; tạo Hive External Table; cấu hình Drill và viết SQL tạo báo cáo Data Quality. | `database/`, `hadoop/sqoop/`, `hadoop/pig/`, `hadoop/hive/`, `hadoop/drill/`, `scripts/ubuntu/run_sqoop.sh`, `scripts/ubuntu/run_pig.sh`, `scripts/ubuntu/run_drill.sh`, `docs/setup/setup_hadoop.md`, `docs/setup/setup_hive_pig_drill.md` |
 | `<Tên thành viên>` | Phân tích 1: MapReduce | Viết 8 job Hadoop Streaming; thiết kế output chuẩn cho Web; chạy job trên dataset `books_mr`; lưu kết quả trên HDFS. | `hadoop/mapreduce/`, `scripts/ubuntu/run_mapreduce_all.sh` |
-| `<Tên thành viên>` | Phân tích 2: Spark/PySpark + HBase/Phoenix/ZooKeeper | Viết PySpark phân tích nâng cao; tạo output trên HDFS; cài đặt và cấu hình HBase, Phoenix, ZooKeeper; thiết kế bảng `books_hbase`; import dữ liệu sách vào HBase dạng chuỗi; tạo Phoenix View ánh xạ. | `hadoop/spark/`, `hadoop/hbase/`, `hadoop/phoenix/`, `scripts/ubuntu/run_spark.sh`, `scripts/ubuntu/run_hbase_phoenix.sh`, `docs/setup/setup_spark.md`, `docs/setup/setup_hbase_phoenix_zookeeper.md` |
+| `<Tên thành viên>` | Phân tích 2: Spark/PySpark + HBase/Phoenix/ZooKeeper | Viết PySpark phân tích nâng cao; tạo output trên HDFS; cài đặt và cấu hình HBase, Phoenix, ZooKeeper; thiết kế bảng `bookbigdata:books_hbase`; import dữ liệu sách vào HBase dạng chuỗi; tạo Phoenix View ánh xạ và bật HBase Thrift Server. | `hadoop/spark/`, `hadoop/hbase/`, `hadoop/phoenix/`, `scripts/ubuntu/run_spark.sh`, `scripts/ubuntu/run_hbase_phoenix.sh`, `docs/setup/setup_spark.md`, `docs/setup/setup_hbase_phoenix_zookeeper.md` |
 
 ### 12.3. Contract tích hợp giữa các module
 
 Cần thống nhất và không tự ý thay đổi các contract sau:
 
+Chi tiết schema output và các vị trí cần cập nhật khi output thay đổi xem tại
+[`docs/output_contract.md`](docs/output_contract.md).
+
 - Schema chung gồm 17 cột theo mục 6.
 - MySQL chỉ là staging database, không dùng làm database chính của Web.
 - HDFS landing nằm tại `/book_project/landing/books`.
 - Pig tạo hai dataset chính: `books_mr` và `books_spark`.
-- Output MapReduce dùng TSV hoặc JSON; output Spark dùng JSON Lines hoặc CSV.
+- Output MapReduce dùng CSV có header; output Spark dùng JSON Lines.
 - Đường dẫn HDFS bắt đầu từ `/book_project`.
-- Flask CRUD, tìm kiếm và truy vấn sách thông qua Phoenix View `BOOKS`.
+- Flask hiển thị, tìm kiếm, lọc, phân trang và truy vấn sách thông qua Phoenix View `BOOKBIGDATA.BOOKS`.
+- Flask thêm, cập nhật và xóa sách trực tiếp trên HBase thông qua HappyBase và HBase Thrift Server.
 - Flask đọc Analytics và Data Quality từ HDFS bằng WebHDFS API.
 - Backup/restore thực hiện trên HBase bằng HBase Snapshot.
 
@@ -578,6 +624,6 @@ Hệ thống hoàn chỉnh cho phép nhóm thu thập dữ liệu sách từ int
 dữ liệu, lưu tạm vào MySQL trong WSL, đưa dữ liệu lên HDFS bằng Sqoop, tạo các
 dataset phân tích bằng Pig, quản lý metadata bằng Hive, phân tích bằng
 MapReduce và Spark/PySpark, kiểm tra Data Quality bằng Drill, lưu dữ liệu sách
-phục vụ Web trong HBase và truy vấn bằng Phoenix. Web Flask hiển thị CRUD sách
-từ HBase, hiển thị Analytics/Data Quality từ HDFS và hỗ trợ backup/restore
-HBase bằng Snapshot.
+phục vụ Web trong HBase và truy vấn đọc bằng Phoenix. Web Flask thực hiện CRUD
+trực tiếp trên HBase bằng HappyBase, hiển thị Analytics/Data Quality từ HDFS
+và hỗ trợ backup/restore HBase bằng Snapshot.

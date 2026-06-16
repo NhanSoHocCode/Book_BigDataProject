@@ -2,8 +2,7 @@
 set -euo pipefail
 
 hbase shell <<'HBASE'
-disable 'books' if exists 'books'
-drop 'books' if exists 'books'
-create 'books', 'info', 'pricing', 'metrics'
-describe 'books'
+create_namespace 'bookbigdata' unless list_namespace.include?('bookbigdata')
+create 'bookbigdata:books_hbase', 'info', 'price', 'stat' unless exists 'bookbigdata:books_hbase'
+describe 'bookbigdata:books_hbase'
 HBASE

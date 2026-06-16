@@ -1,72 +1,118 @@
-"""Import ETL output from books_clean.csv into MySQL."""
-
-from __future__ import annotations
-
-import argparse
-import csv
-import os
-from pathlib import Path
-from typing import Any, Iterator
-
+import pandas as pd
 import mysql.connector
-from dotenv import load_dotenv
 
+CSV_FILE = r"D:\BDE\Project\BookBigDataSystem\data\clean\books_clean.csv"
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CSV = PROJECT_ROOT / "data" / "clean" / "books_clean.csv"
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "root",
+    "password": "natsume0705",
+    "database": "book_bigdata",
+}
+
 FIELDS = [
-    "book_id", "source", "title", "author", "publisher", "language_group",
-    "main_category", "sub_category", "price", "original_price", "discount_rate",
-    "rating", "review_count", "sold_count", "publish_year", "page_count", "url",
+    "book_id", "source", "title", "author", "publisher",
+    "language_group", "main_category", "sub_category",
+    "price", "original_price", "discount_rate", "rating",
+    "review_count", "sold_count", "publish_year", "page_count", "url"
 ]
 
+def clean_text(value, default="Unknown"):
+    if pd.isna(value) or str(value).strip() == "":
+        return default
+    return str(value).strip()
 
-def connection_config() -> dict[str, Any]:
-    load_dotenv(PROJECT_ROOT / ".env")
-    return {
-        "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
-        "port": int(os.getenv("MYSQL_PORT", "3306")),
-        "database": os.getenv("MYSQL_DATABASE", "book_big_data"),
-        "user": os.getenv("MYSQL_USER", "root"),
-        "password": os.getenv("MYSQL_PASSWORD", ""),
-    }
+def clean_float(value, default=0.0):
+    if pd.isna(value) or value == "":
+        return default
+    return float(value)
 
+def clean_int(value, default=0):
+    if pd.isna(value) or value == "":
+        return default
+    return int(float(value))
 
-def empty_to_none(value: str) -> str | None:
-    return value if value != "" else None
+def clean_nullable_int(value):
+    if pd.isna(value) or value == "":
+        return None
+    return int(float(value))
 
+def main():
+    df = pd.read_csv(CSV_FILE)
 
-def csv_rows(path: Path) -> Iterator[tuple[Any, ...]]:
-    with path.open("r", encoding="utf-8-sig", newline="") as file:
-        for row in csv.DictReader(file):
-            yield tuple(empty_to_none(row.get(field, "")) for field in FIELDS)
+    missing_cols = [col for col in FIELDS if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"CSV thiếu cột: {missing_cols}")
 
+    df = df[FIELDS]
 
-def import_books(path: Path) -> int:
-    placeholders = ", ".join(["%s"] * len(FIELDS))
-    updates = ", ".join(f"{field}=VALUES({field})" for field in FIELDS[2:])
-    query = (
-        f"INSERT INTO books ({', '.join(FIELDS)}) VALUES ({placeholders}) "
-        f"ON DUPLICATE KEY UPDATE {updates}"
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor()
+
+    sql = """
+    INSERT INTO books (
+        book_id, source, title, author, publisher,
+        language_group, main_category, sub_category,
+        price, original_price, discount_rate, rating,
+        review_count, sold_count, publish_year, page_count, url
     )
-    connection = mysql.connector.connect(**connection_config())
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        title = VALUES(title),
+        author = VALUES(author),
+        publisher = VALUES(publisher),
+        language_group = VALUES(language_group),
+        main_category = VALUES(main_category),
+        sub_category = VALUES(sub_category),
+        price = VALUES(price),
+        original_price = VALUES(original_price),
+        discount_rate = VALUES(discount_rate),
+        rating = VALUES(rating),
+        review_count = VALUES(review_count),
+        sold_count = VALUES(sold_count),
+        publish_year = VALUES(publish_year),
+        page_count = VALUES(page_count),
+        url = VALUES(url)
+    """
+
+    count = 0
+
     try:
-        cursor = connection.cursor()
-        rows = list(csv_rows(path))
-        cursor.executemany(query, rows)
-        connection.commit()
-        return len(rows)
+        for _, row in df.iterrows():
+            values = (
+                clean_text(row["book_id"], default=""),
+                clean_text(row["source"], default="unknown").lower(),
+                clean_text(row["title"], default="Unknown"),
+                clean_text(row["author"], default="Unknown"),
+                clean_text(row["publisher"], default="Unknown"),
+                clean_text(row["language_group"], default="Unknown"),
+                clean_text(row["main_category"], default="Unknown"),
+                clean_text(row["sub_category"], default="Unknown"),
+                clean_float(row["price"]),
+                clean_float(row["original_price"]),
+                clean_float(row["discount_rate"]),
+                clean_float(row["rating"]),
+                clean_int(row["review_count"]),
+                clean_int(row["sold_count"]),
+                clean_nullable_int(row["publish_year"]),
+                clean_nullable_int(row["page_count"]),
+                clean_text(row["url"], default=""),
+            )
+
+            cursor.execute(sql, values)
+            count += 1
+
+        conn.commit()
+        print(f"Imported/Updated {count} rows successfully.")
+
+    except Exception as e:
+        conn.rollback()
+        print("Import failed.")
+        print(e)
+
     finally:
-        connection.close()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
-    args = parser.parse_args()
-    count = import_books(args.csv)
-    print(f"Imported {count} books from {args.csv}")
-
+        cursor.close()
+        conn.close()
 
 if __name__ == "__main__":
     main()

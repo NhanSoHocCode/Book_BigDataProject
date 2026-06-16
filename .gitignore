@@ -10,3 +10,4 @@ __pycache__/
 backups/
 data/raw/fahasa_books_old.json
 data/raw/tiki_books_old.json
+tmp
