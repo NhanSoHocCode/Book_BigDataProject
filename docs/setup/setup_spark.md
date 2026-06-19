@@ -32,6 +32,7 @@ cp $HIVE_HOME/conf/hive-site.xml $SPARK_HOME/conf/
 Chạy:
 
 ```bash
+nohup hive --service metastore > ~/hive-metastore.log 2>&1 &
 bash scripts/ubuntu/run_spark.sh
 ```
 
@@ -55,7 +56,7 @@ Kiểm tra output analytics:
 
 ```bash
 hdfs dfs -ls /book_project/analytics/spark
-hdfs dfs -cat /book_project/analytics/spark/source_comparison/part-*
+hdfs dfs -cat /book_project/analytics/spark/popular_books/part-*
 ```
 
 Các output Spark gồm:
