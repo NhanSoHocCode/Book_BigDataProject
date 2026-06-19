@@ -1,84 +1,300 @@
 {% extends "layout.html" %}
-{% block title %}Books | Book Big Data{% endblock %}
+{% block title %}Quản lý sách | Book Big Data{% endblock %}
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="page-heading">
     <div>
-      <h1 class="h3 mb-1">Book Management</h1>
-      <p class="text-secondary mb-0">{{ total }} books in MySQL</p>
+      <div class="eyebrow">Book Management</div>
+      <h1 class="h3 mb-1">Quản lý sách</h1>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="badge {{ 'badge-mock' if is_mock else 'text-bg-success' }}">{{ "Books" }}</span>
+      <button class="btn btn-primary" type="button" id="openAddBookButton">
+        + Thêm sách
+      </button>
     </div>
   </div>
+  {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
 
-  <form class="row g-2 card card-body mb-3" method="get">
-    <div class="col-md-3"><input class="form-control" name="q" value="{{ filters.q }}" placeholder="Search title"></div>
-    <div class="col-md-2">
+  <form class="filter-toolbar mb-4" method="get">
+    <div class="filter-field filter-search">
+      <label class="form-label">Tìm kiếm</label>
+      <input class="form-control" name="q" value="{{ filters.q }}" placeholder="Nhập tên sách muốn tìm...">
+    </div>
+    <div class="filter-field filter-source">
+      <label class="form-label">Nguồn</label>
       <select class="form-select" name="source">
-        <option value="">All sources</option>
+        <option value="">Tất cả</option>
         <option value="tiki" {% if filters.source == "tiki" %}selected{% endif %}>Tiki</option>
         <option value="fahasa" {% if filters.source == "fahasa" %}selected{% endif %}>Fahasa</option>
       </select>
     </div>
-    <div class="col-md-2"><input class="form-control" name="category" value="{{ filters.category }}" placeholder="Category"></div>
-    <div class="col-md-2"><input class="form-control" name="author" value="{{ filters.author }}" placeholder="Author"></div>
-    <div class="col-md-1"><input class="form-control" name="min_price" value="{{ filters.min_price }}" placeholder="Min"></div>
-    <div class="col-md-1"><input class="form-control" name="max_price" value="{{ filters.max_price }}" placeholder="Max"></div>
-    <div class="col-md-1"><button class="btn btn-primary w-100">Filter</button></div>
-  </form>
-
-  <details class="card card-body mb-3">
-    <summary class="fw-semibold">{% if edit_book %}Edit book{% else %}Add a book{% endif %}</summary>
-    <form class="row g-2 mt-2" method="post" action="{{ url_for('books.save') }}">
-      {% for field in ["book_id", "title", "author", "publisher", "language_group", "main_category", "sub_category", "price", "original_price", "discount_rate", "rating", "review_count", "sold_count", "publish_year", "page_count", "url"] %}
-        <div class="col-md-3"><input class="form-control" name="{{ field }}" value="{{ edit_book.get(field, '') if edit_book else '' }}" placeholder="{{ field }}" {% if field in ["book_id", "title", "url"] %}required{% endif %}></div>
-      {% endfor %}
-      <div class="col-md-3">
-        <select class="form-select" name="source" required>
-          <option value="tiki" {% if edit_book and edit_book.source == "tiki" %}selected{% endif %}>Tiki</option>
-          <option value="fahasa" {% if edit_book and edit_book.source == "fahasa" %}selected{% endif %}>Fahasa</option>
-        </select>
-      </div>
-      <div class="col-12">
-        <button class="btn btn-success">Save book</button>
-        {% if edit_book %}<a class="btn btn-outline-secondary" href="{{ url_for('books.index') }}">Cancel</a>{% endif %}
-      </div>
-    </form>
-  </details>
-
-  <div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-      <thead><tr><th>Source</th><th>ID</th><th>Title</th><th>Author</th><th>Category</th><th>Price</th><th>Sold</th><th></th></tr></thead>
-      <tbody>
-        {% for book in books %}
-          <tr>
-            <td>{{ book.source }}</td>
-            <td>{{ book.book_id }}</td>
-            <td><a href="{{ book.url }}" target="_blank" rel="noreferrer">{{ book.title }}</a></td>
-            <td>{{ book.author }}</td>
-            <td>{{ book.main_category }}</td>
-            <td>{{ "{:,.0f}".format(book.price) }}</td>
-            <td>{{ book.sold_count }}</td>
-            <td>
-              <div class="d-flex gap-1">
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('books.index', edit_source=book.source, edit_id=book.book_id) }}">Edit</a>
-                <form method="post" action="{{ url_for('books.delete', source=book.source, book_id=book.book_id) }}" onsubmit="return confirm('Delete this book?')">
-                  <button class="btn btn-sm btn-outline-danger">Delete</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="8" class="text-center text-secondary">No books found.</td></tr>
+    <div class="filter-field filter-main-category">
+      <label class="form-label">Danh mục lớn</label>
+      <select class="form-select category-select" name="category" id="mainCategoryFilter">
+        <option value="">Tất cả danh mục</option>
+        {% for category in categories %}
+          <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>
+            {{ category }}
+          </option>
         {% endfor %}
-      </tbody>
-    </table>
+      </select>
+    </div>
+    <div class="filter-field filter-sub-category">
+      <label class="form-label">Danh mục phụ</label>
+      <select
+        class="form-select category-select"
+        name="sub_category"
+        id="subCategoryFilter"
+        data-selected-value="{{ filters.sub_category }}"
+        disabled
+      >
+        <option value="">Chọn danh mục lớn trước</option>
+      </select>
+    </div>
+    <div class="filter-field filter-author">
+      <label class="form-label">Tác giả</label>
+      <input class="form-control" name="author" value="{{ filters.author }}" placeholder="Tên tác giả">
+    </div>
+    <div class="filter-field filter-price">
+      <label class="form-label">Giá từ</label>
+      <input class="form-control" type="number" min="0" name="min_price" value="{{ filters.min_price }}" placeholder="0">
+    </div>
+    <div class="filter-field filter-price">
+      <label class="form-label">Giá đến</label>
+      <input class="form-control" type="number" min="0" name="max_price" value="{{ filters.max_price }}" placeholder="500000">
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit">Áp dụng</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('books.index') }}">Đặt lại</a>
+    </div>
+  </form>
+  <script type="application/json" id="bookCategoryTree">{{ category_tree | tojson }}</script>
+
+  <div class="table-shell">
+    <div class="table-responsive">
+      <table class="table book-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Nguồn</th>
+            <th>Title</th>
+            <th>Tác giả</th>
+            <th>Danh mục</th>
+            <th class="text-end">Giá</th>
+            <th class="text-end">Đã bán</th>
+            <th class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in books %}
+            <tr>
+              <td class="text-secondary">{{ row_offset + loop.index }}</td>
+              <td><span class="source-pill source-{{ book.source }}">{{ book.source }}</span></td>
+              <td>
+                <div class="book-title-cell">{{ book.title }}</div>
+                <div class="small text-secondary">{{ book.book_id }}</div>
+              </td>
+              <td>{{ book.author }}</td>
+              <td>{{ book.main_category }}</td>
+              <td class="text-end">{{ "{:,.0f}".format(book.price or 0) }} đ</td>
+              <td class="text-end">{{ "{:,.0f}".format(book.sold_count or 0) }}</td>
+              <td>
+                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                  <button
+                    class="btn btn-sm btn-outline-primary js-view-book"
+                    type="button"
+                    data-api-url="{{ url_for('books.api_get_book', source=book.source, book_id=book.book_id) }}"
+                  >Xem</button>
+                  <button
+                    class="btn btn-sm btn-outline-secondary js-edit-book"
+                    type="button"
+                    data-api-url="{{ url_for('books.api_get_book', source=book.source, book_id=book.book_id) }}"
+                  >Sửa</button>
+                  <button
+                    class="btn btn-sm btn-outline-danger js-delete-book"
+                    type="button"
+                    data-delete-url="{{ url_for('books.api_delete_book', source=book.source, book_id=book.book_id) }}"
+                    data-book-title="{{ book.title }}"
+                  >Xóa</button>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" class="empty-state">Không tìm thấy sách phù hợp.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <nav>
-    <ul class="pagination">
-      {% for current in range(1, pages + 1) %}
-        <li class="page-item {% if current == page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('books.index', page=current, **filters) }}">{{ current }}</a>
-        </li>
+  <nav class="mt-4" aria-label="Phân trang sách">
+    <ul class="pagination justify-content-center">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('books.index', page=page - 1, **filters) }}">Trước</a>
+      </li>
+      {% for current in pagination_items %}
+        {% if current is none %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% else %}
+          <li class="page-item {% if current == page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('books.index', page=current, **filters) }}">{{ current }}</a>
+          </li>
+        {% endif %}
       {% endfor %}
+      <li class="page-item {% if page >= pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('books.index', page=page + 1, **filters) }}">Sau</a>
+      </li>
     </ul>
   </nav>
+
+  <div class="modal fade" id="bookDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">Chi tiết sách</div>
+            <h2 class="modal-title h5 mb-0" id="detailTitle">Thông tin sách</h2>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3" id="bookDetailGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="bookFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <form id="bookModalForm" class="modal-content" novalidate>
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">HappyBase Put</div>
+            <h2 class="modal-title h5 mb-0" id="bookFormModalTitle">Thêm sách</h2>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="alert alert-info py-2"></div>
+          
+          <div class="form-error-summary alert alert-danger d-none" id="bookFormError"></div>
+
+          <h3 class="form-section-title">Thông tin định danh</h3>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label">Book ID <span class="required-mark">*</span></label>
+              <input class="form-control" name="book_id" maxlength="150" required>
+              <div class="invalid-feedback" data-error-for="book_id">Book ID không được để trống.</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Nguồn <span class="required-mark">*</span></label>
+              <select class="form-select" name="source" required>
+                <option value="">Chọn nguồn</option>
+                <option value="tiki">Tiki</option>
+                <option value="fahasa">Fahasa</option>
+              </select>
+              <div class="invalid-feedback" data-error-for="source">Vui lòng chọn nguồn.</div>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Tên sách <span class="required-mark">*</span></label>
+              <input class="form-control" name="title" maxlength="500" required>
+              <div class="invalid-feedback" data-error-for="title">Tên sách không được để trống.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">URL <span class="required-mark">*</span></label>
+              <input class="form-control" name="url" type="url" placeholder="https://..." required>
+              <div class="invalid-feedback" data-error-for="url">URL phải hợp lệ.</div>
+            </div>
+          </div>
+
+          <h3 class="form-section-title">Phân loại và xuất bản</h3>
+          <div class="row g-3 mb-4">
+            {% for name, label in [
+              ("author", "Tác giả"),
+              ("publisher", "Nhà xuất bản"),
+              ("language_group", "Nhóm ngôn ngữ"),
+              ("main_category", "Category lớn"),
+              ("sub_category", "Sub-category")
+            ] %}
+              <div class="col-md-4">
+                <label class="form-label">{{ label }}</label>
+                <input class="form-control" name="{{ name }}">
+                <div class="invalid-feedback" data-error-for="{{ name }}"></div>
+              </div>
+            {% endfor %}
+            <div class="col-md-2">
+              <label class="form-label">Năm xuất bản</label>
+              <input class="form-control" name="publish_year" type="number" min="1000" max="{{ max_publish_year }}" step="1">
+              <div class="invalid-feedback" data-error-for="publish_year"></div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Số trang</label>
+              <input class="form-control" name="page_count" type="number" min="1" step="1">
+              <div class="invalid-feedback" data-error-for="page_count"></div>
+            </div>
+          </div>
+
+          <h3 class="form-section-title">Giá và chỉ số</h3>
+          <div class="row g-3">
+            {% for name, label, min_value, max_value, step_value, required in [
+              ("price", "Giá bán", "0.01", "", "0.01", true),
+              ("original_price", "Giá gốc", "0", "", "0.01", false),
+              ("discount_rate", "Giảm giá (%)", "0", "100", "0.01", false),
+              ("rating", "Rating", "0", "5", "0.1", false),
+              ("review_count", "Lượt đánh giá", "0", "", "1", false),
+              ("sold_count", "Đã bán", "0", "", "1", false)
+            ] %}
+              <div class="col-md-4 col-lg-2">
+                <label class="form-label">{{ label }}{% if required %} <span class="required-mark">*</span>{% endif %}</label>
+                <input
+                  class="form-control"
+                  name="{{ name }}"
+                  type="number"
+                  min="{{ min_value }}"
+                  {% if max_value %}max="{{ max_value }}"{% endif %}
+                  step="{{ step_value }}"
+                  value="0"
+                  {% if required %}required{% endif %}
+                >
+                <div class="invalid-feedback" data-error-for="{{ name }}"></div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary" id="saveBookButton">Lưu sách</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteBookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5 mb-0">Xác nhận xóa sách</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <p>Bạn sắp xóa <strong id="deleteBookTitle"></strong>. Thao tác này không thể hoàn tác.</p>
+          <div class="form-check confirmation-box">
+            <input class="form-check-input" type="checkbox" id="deleteConfirmation">
+            <label class="form-check-label" for="deleteConfirmation">
+              Xác nhận muốn xóa sách này.
+            </label>
+          </div>
+          <div class="alert alert-danger d-none mt-3 mb-0" id="deleteBookError"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteBookButton" disabled>Xóa sách</button>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

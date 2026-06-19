@@ -15,7 +15,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from crawler_etl.scrapy_crawler.book_crawler.items import BookItem
-
 from crawler_etl.scrapy_crawler.book_crawler.text_utils import (
     canonical_url,
     clean_title,

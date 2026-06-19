@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard | Book Big Data{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">System overview</div>
+      <h1 class="h3 mb-1">Dashboard</h1>
+      <p class="text-secondary mb-0">Tổng quan vận hành hệ thống.</p>
+    </div>
+    <span class="badge {{ 'badge-mock' if is_mock else 'text-bg-success' }}">{{ "Books" }}</span>
+  </div>
+  {% for error in dashboard.get("errors", []) %}
+    <div class="alert alert-warning">{{ error }}</div>
+  {% endfor %}
+
+  <div class="row g-3 mb-4">
+    {% set cards = [
+      ("Tổng sách", dashboard.total_books, "Tổng số sách trong hệ thống"),
+      ("Tiki", dashboard.tiki_books, "Số sách nguồn Tiki"),
+      ("Fahasa", dashboard.fahasa_books, "Số sách nguồn Fahasa"),
+      ("Category", dashboard.categories, "Số category lớn"),
+      ("Tác giả", dashboard.authors, "Số tác giả khác nhau"),
+      ("Backup gần nhất", dashboard.last_backup, "Backup gần nhất")
+    ] %}
+    {% for title, value, note in cards %}
+      <div class="col-md-4 col-xl-2">
+        <div class="card kpi-card h-100">
+          <div class="card-body">
+            <div class="kpi-label">{{ title }}</div>
+            <div class="kpi-value">{{ value }}</div>
+            <div class="text-secondary small mt-2">{{ note }}</div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5">Trạng thái kết nối</h2>
+          <div class="list-group status-list">
+            {% for item in dashboard.statuses %}
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ item.name }}</span>
+                <span class="badge text-bg-{{ item.variant }}">{{ item.status }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5">Lối tắt</h2>
+          <div class="d-grid gap-2">
+            <a class="btn btn-outline-primary" href="{{ url_for('books.index') }}">Quản lý sách</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('books.sql_query') }}">Truy vấn Phoenix SQL</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('analytics.index') }}">Analytics</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('quality.index') }}">Data Quality</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('backup.index') }}">Backup & Restore</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

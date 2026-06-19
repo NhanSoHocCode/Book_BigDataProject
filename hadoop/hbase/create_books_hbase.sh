@@ -21,6 +21,7 @@ if exists('bookbigdata:books_hbase')
 end
 
 create 'bookbigdata:books_hbase', 'info', 'price', 'stat'
+
 describe 'bookbigdata:books_hbase'
 HBASE
 }

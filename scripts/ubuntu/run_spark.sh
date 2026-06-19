@@ -2,7 +2,9 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 HIVE_DATABASE="${HIVE_DATABASE:-book_project}"
+
 HIVE_SPARK_SOURCE_TABLE="${HIVE_SPARK_SOURCE_TABLE:-books_spark}"
 HDFS_SPARK_OUTPUT="${HDFS_SPARK_OUTPUT:-/book_project/analytics/spark}"
 

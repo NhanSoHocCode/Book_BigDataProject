@@ -1,5 +1,3 @@
-"""Backup and restore routes."""
-
 from __future__ import annotations
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
@@ -14,48 +12,40 @@ def service():
 
 @backup_blueprint.get("")
 def index():
-    logs = current_app.extensions["mysql_service"].list_backup_logs()
-    return render_template("backup.html", logs=logs)
-
-
-@backup_blueprint.post("/mysql")
-def backup_mysql():
+    error = None
     try:
-        path = service().backup_mysql()
-        flash(f"MySQL backup created: {path}", "success")
+        snapshots = service().list_snapshots()
+    except Exception as caught:
+        snapshots = []
+        error = f"Không thể đọc danh sách HBase Snapshot: {caught}"
+    return render_template("backup.html", snapshots=snapshots, error=error)
+
+
+@backup_blueprint.post("/hbase")
+def backup_hbase():
+    try:
+        snapshot = service().create_snapshot()
+        flash(f"Đã tạo HBase Snapshot: {snapshot}", "success")
     except Exception as error:
-        flash(f"MySQL backup failed: {error}", "danger")
+        flash(f"Tạo HBase Snapshot thất bại: {error}", "danger")
     return redirect(url_for("backup.index"))
 
 
-@backup_blueprint.post("/mysql/restore")
-def restore_mysql():
+@backup_blueprint.post("/hbase/restore")
+def restore_hbase():
     try:
-        path = service().restore_mysql(request.form.get("backup_path", ""))
-        flash(f"MySQL restored from: {path}", "success")
+        snapshot = service().restore_snapshot(request.form.get("snapshot", ""))
+        flash(f"Đã restore HBase Snapshot: {snapshot}", "success")
     except Exception as error:
-        flash(f"MySQL restore failed: {error}", "danger")
+        flash(f"Restore HBase Snapshot thất bại: {error}", "danger")
     return redirect(url_for("backup.index"))
 
 
-@backup_blueprint.post("/hdfs")
-def backup_hdfs():
+@backup_blueprint.post("/hbase/delete")
+def delete_hbase_snapshot():
     try:
-        path = service().backup_hdfs(request.form.get("scope", "all"))
-        flash(f"HDFS backup created: {path}", "success")
+        snapshot = service().delete_snapshot(request.form.get("snapshot", ""))
+        flash(f"Đã xóa HBase Snapshot: {snapshot}", "success")
     except Exception as error:
-        flash(f"HDFS backup failed: {error}", "danger")
-    return redirect(url_for("backup.index"))
-
-
-@backup_blueprint.post("/hdfs/restore")
-def restore_hdfs():
-    try:
-        path = service().restore_hdfs(
-            request.form.get("snapshot", ""),
-            request.form.get("scope", ""),
-        )
-        flash(f"HDFS restored from: {path}", "success")
-    except Exception as error:
-        flash(f"HDFS restore failed: {error}", "danger")
+        flash(f"Xóa HBase Snapshot thất bại: {error}", "danger")
     return redirect(url_for("backup.index"))

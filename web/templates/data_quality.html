@@ -1,22 +1,97 @@
 {% extends "layout.html" %}
 {% block title %}Data Quality | Book Big Data{% endblock %}
 {% block content %}
-  <h1 class="h3">Data Quality</h1>
-  <p class="text-secondary">Drill quality report loaded from HDFS through WebHDFS.</p>
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">Apache Drill / HDFS</div>
+      <h1 class="h3 mb-1">Data Quality</h1>
+    </div>
+    <span class="badge {{ 'badge-mock' if is_mock else 'text-bg-success' }}">{{ "Books" }}</span>
+  </div>
   {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
   {% if chart %}
     <div class="chart-panel mb-4"><canvas id="quality-chart"></canvas></div>
   {% endif %}
-  <table class="table table-striped">
-    <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
-    <tbody>
-      {% for row in rows %}
-        <tr>{% for column in columns %}<td>{{ row.get(column, "") }}</td>{% endfor %}</tr>
-      {% else %}
-        <tr><td class="text-secondary">No Drill quality report available.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-shell">
+    <div class="table-responsive">
+      <table class="table book-table mb-0">
+        <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              {% for column in columns %}
+                <td>
+                  {# 1. Cột STATUS #}
+                  {% if column == "status" %}
+                    <span class="badge {% if row.get(column) == 'OK' %}text-bg-success{% else %}text-bg-warning{% endif %}">
+                      {{ row.get(column, "") }}
+                    </span>
+
+                  {# 2. Cột DATASETS (Thống kê số lượng dòng) #}
+                  {% elif column == "DATASETS" %}
+                    {% set datasets = row.get(column, {}) %}
+                    <div class="lh-sm">
+                      <small class="text-muted d-block">Landing:</small> <strong>{{ datasets.get('books_landing', 0) }}</strong> dòng<br/>
+                      <small class="text-muted d-block mt-1">MapReduce:</small> <strong>{{ datasets.get('books_mr', 0) }}</strong> dòng<br/>
+                      <small class="text-muted d-block mt-1">Spark:</small> <strong>{{ datasets.get('books_spark', 0) }}</strong> dòng
+                    </div>
+
+                  {# 3. Cột QUALITY_CHECKS (Kiểm tra dữ liệu hợp lệ và lỗi thiếu trường) #}
+                  {% elif column == "QUALITY_CHECKS" %}
+                    {% set qc = row.get(column, {}) %}
+                    <div class="lh-sm">
+                      <span class="text-success">✔ Hợp lệ: <strong>{{ qc.get('valid_records', 0) }}</strong></span><br/>
+                      <span class="text-danger">✖ Bị loại: <strong>{{ qc.get('rejected_records', 0) }}</strong></span>
+                      
+                      {% set missing = qc.get('missing_required', {}) %}
+                      {% if missing.get('missing_book_id', 0) > 0 or missing.get('missing_title', 0) > 0 %}
+                        <div class="mt-2 p-1 bg-light rounded" style="font-size: 0.75rem;">
+                          <span class="text-secondary">Lỗi thiếu:</span><br/>
+                          • Book ID: <span class="text-danger">{{ missing.get('missing_book_id', 0) }}</span><br/>
+                          • Title: <span class="text-danger">{{ missing.get('missing_title', 0) }}</span>
+                        </div>
+                      {% endif %}
+                    </div>
+
+                  {# 4. Cột RECONCILIATION (Đối soát chênh lệch chéo giữa các tầng) #}
+                  {% elif column == "RECONCILIATION" %}
+                    {% set rec = row.get(column, {}) %}
+                    <div class="lh-sm" style="font-size: 0.85rem;">
+                      <span class="text-secondary">Landing vs MR:</span> 
+                      <strong class="{% if rec.get('landing_vs_mr_difference', 0) == 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ rec.get('landing_vs_mr_difference', 0) }}
+                      </strong><br/>
+                      
+                      <span class="text-secondary">Landing vs Spark:</span> 
+                      <strong class="{% if rec.get('landing_vs_spark_difference', 0) == 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ rec.get('landing_vs_spark_difference', 0) }}
+                      </strong>
+                    </div>
+
+                  {# 5. Cột MISSING_RECORDS (Liệt kê ID bị mất tích) #}
+                  {% elif column == "MISSING_RECORDS" %}
+                    {% set missing_rec = row.get(column, {}) %}
+                    <div class="lh-sm" style="font-size: 0.85rem;">
+                      <span class="text-secondary">Thiếu ở MR:</span> 
+                      {% if missing_rec.get('mr') %}<span class="badge text-bg-danger">{{ missing_rec.get('mr')|length }} ID</span>{% else %}<span class="text-success">✔ Không</span>{% endif %}<br/>
+                      <span class="text-secondary">Thiếu ở Spark:</span> 
+                      {% if missing_rec.get('spark') %}<span class="badge text-bg-danger">{{ missing_rec.get('spark')|length }} ID</span>{% else %}<span class="text-success">✔ Không</span>{% endif %}
+                    </div>
+
+                  {# 6. Các cột văn bản thông thường khác #}
+                  {% else %}
+                    {{ row.get(column, "") }}
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% else %}
+            <tr><td class="empty-state">Chưa có báo cáo Data Quality.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% endblock %}
 {% block scripts %}
   {% if chart %}
